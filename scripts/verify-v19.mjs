@@ -16,9 +16,12 @@ for(const token of ['calculatePerclos','delegate:"CPU"','alarmSnoozeUntil','yawn
 for(const token of ['TRIP_KEY','fatigueEpisodeActive','yawnEvents','alarmActive()){hideRecommendation']) if(!rec.includes(token)) fail(`recommandations incomplètes: ${token}`);
 for(const token of ['./runtime-v18.js','./runtime-v18.css','./onboarding-v19.js','./onboarding-v19.css']) if(!app.includes(token)) fail(`module non chargé: ${token}`);
 for(const token of ['navigator.wakeLock.request','visibilitychange','resumeAfterBackground','restartMonitoring']) if(!runtime.includes(token)) fail(`runtime incomplet: ${token}`);
-for(const token of ['cr3atix-vigilance-setup-v19','beforeinstallprompt','appinstalled','configOK','REFAIRE LA CONFIGURATION INITIALE','VALIDER LES RÉGLAGES AFFICHÉS']) if(!onboard.includes(token)) fail(`onboarding incomplet: ${token}`);
+for(const token of ['cr3atix-vigilance-setup-v19','beforeinstallprompt','appinstalled','configOK','REFAIRE LA CONFIGURATION INITIALE','const SCHEMA=2','calibrationConfirmed','detectionConfirmed','volumeConfirmed','setupCalOK','setupDetOK','setupVolOK']) if(!onboard.includes(token)) fail(`onboarding incomplet: ${token}`);
+if(!onboard.includes("function installOK(s=load()){return installed()||s.installSkipped===true}")) fail('ancienne installation encore considérée comme installation active');
+if(onboard.includes('installed()||s.installDone||s.installSkipped')) fail('installDone ne doit plus valider une installation courante');
+if(!onboard.includes("after!==before&&calOK()")) fail('la calibration doit être refaite pendant la session de configuration');
 if(!onboardCss.includes('.first-run-overlay')||!onboardCss.includes('.setup-dock')) fail('styles onboarding incomplets');
-if(!sw.includes('cr3atix-vigilance-v1.9')) fail('cache V1.9 absent');
+if(!sw.includes('cr3atix-vigilance-v1.9.1')) fail('cache V1.9.1 absent');
 for(const asset of ['runtime-v18.js','runtime-v18.css','onboarding-v19.js','onboarding-v19.css']) if(!sw.includes(asset)) fail(`asset absent du cache: ${asset}`);
 if(!sw.includes('e.request.mode==="navigate"')) fail('fallback service worker trop large');
-console.log('V1.9 verification OK');
+console.log('V1.9.1 verification OK');
