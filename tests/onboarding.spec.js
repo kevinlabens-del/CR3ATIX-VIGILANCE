@@ -106,7 +106,7 @@ test('installed mode: settings controls are not covered and setup can be complet
   const stored = await page.evaluate(() => ({
     volume: localStorage.getItem('cr3atix-vigilance-alarm-volume-v1'),
     detection: JSON.parse(localStorage.getItem('cr3atix-vigilance-detection-settings-v172') || 'null'),
-    setup: JSON.parse(localStorage.getItem('cr3atix-vigilance-setup-v196') || 'null')
+    setup: JSON.parse(localStorage.getItem('cr3atix-vigilance-setup-v197') || 'null')
   }));
   expect(Number(stored.volume)).toBeCloseTo(0.73, 2);
   expect(stored.detection.closureDelay).toBeCloseTo(1.5, 2);
@@ -126,7 +126,7 @@ test('installed mode: settings controls are not covered and setup can be complet
       baseline: 0.31,
       calibratedAt: new Date().toISOString()
     }));
-    const key = 'cr3atix-vigilance-setup-v196';
+    const key = 'cr3atix-vigilance-setup-v197';
     const setup = JSON.parse(localStorage.getItem(key));
     setup.run.calibrationConfirmed = true;
     setup.run.detectionConfirmed = true;
