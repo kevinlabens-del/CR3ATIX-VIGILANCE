@@ -1,5 +1,5 @@
-const CACHE="cr3atix-vigilance-v1.9.5";
-const CORE=["./","./index.html","./styles.css","./app.js","./app-core-v16.js","./manifest.webmanifest","./icon.svg","./recommendations-v17.css","./recommendations-v17.js","./runtime-v18.css","./runtime-v18.js","./onboarding-v19.css","./onboarding-v195.js"];
+const CACHE="cr3atix-vigilance-v1.9.6";
+const CORE=["./","./index.html","./styles.css","./app.js","./app-core-v16.js","./manifest.webmanifest","./icon.svg","./recommendations-v17.css","./recommendations-v17.js","./runtime-v18.css","./runtime-v18.js","./onboarding-v19.css","./onboarding-v196.js"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));
 self.addEventListener("activate",e=>e.waitUntil((async()=>{
   const keys=await caches.keys();
@@ -12,7 +12,8 @@ self.addEventListener("fetch",e=>{
   if(e.request.method!=="GET")return;
   const req=e.request;
   const url=new URL(req.url);
-  const dynamic=url.origin===self.location.origin&&(req.mode==="navigate"||req.destination==="script"||req.destination==="style");
+  const sameOrigin=url.origin===self.location.origin;
+  const dynamic=sameOrigin&&(req.mode==="navigate"||req.destination==="script"||req.destination==="style"||url.pathname.endsWith('/sw.js'));
   if(dynamic){
     e.respondWith(fetch(req,{cache:"no-store"}).then(r=>{
       const copy=r.clone();
