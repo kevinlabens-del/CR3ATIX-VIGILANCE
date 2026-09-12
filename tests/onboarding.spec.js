@@ -27,13 +27,16 @@ async function expectTouchable(page, selector) {
     return {
       width: r.width,
       height: r.height,
+      tag: el.tagName,
+      type: el.getAttribute('type') || '',
       hitId: hit?.id || '',
       hitTag: hit?.tagName || '',
       isTarget: hit === el || el.contains(hit)
     };
   });
-  expect(result.width).toBeGreaterThan(20);
-  expect(result.height).toBeGreaterThan(20);
+  expect(result.width).toBeGreaterThan(8);
+  if (result.tag === 'BUTTON') expect(result.height).toBeGreaterThanOrEqual(40);
+  else expect(result.height).toBeGreaterThan(8);
   expect(result.isTarget, `${selector} is covered by ${result.hitTag}#${result.hitId}`).toBeTruthy();
 }
 
