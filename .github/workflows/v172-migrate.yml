@@ -23,6 +23,8 @@ jobs:
           fetch-depth: 0
       - name: Apply corrections
         run: python3 scripts/migrate-v172.py
+      - name: Keep workflow files unchanged during migration
+        run: git checkout HEAD -- .github/workflows/pages.yml .github/workflows/v172-migrate.yml
       - name: Verify corrected files
         run: |
           node --check app.js
