@@ -37,6 +37,14 @@ async function expectTouchable(page, selector) {
   expect(result.isTarget, `${selector} is covered by ${result.hitTag}#${result.hitId}`).toBeTruthy();
 }
 
+async function setRange(page, selector, value) {
+  await page.locator(selector).evaluate((el, v) => {
+    el.value = String(v);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }, value);
+}
+
 async function emulateInstalled(page) {
   await page.addInitScript(() => {
     const nativeMatchMedia = window.matchMedia.bind(window);
@@ -87,9 +95,9 @@ test('installed mode: settings controls are not covered and setup can be complet
   await expectTouchable(page, '#closureDelay');
   await expectTouchable(page, '#setupConfirmSettings');
 
-  await page.locator('#alarmVolume').fill('73');
-  await page.locator('#closureDelay').fill('1.5');
-  await page.locator('#yawnThreshold').fill('0.58');
+  await setRange(page, '#alarmVolume', 73);
+  await setRange(page, '#closureDelay', 1.5);
+  await setRange(page, '#yawnThreshold', 0.58);
   await page.locator('#setupConfirmSettings').click();
 
   const stored = await page.evaluate(() => ({
@@ -103,13 +111,12 @@ test('installed mode: settings controls are not covered and setup can be complet
   expect(stored.setup.run.detectionConfirmed).toBe(true);
   expect(stored.setup.run.volumeConfirmed).toBe(true);
 
-  // Le bouton retour doit lui aussi recevoir le clic, mais la première configuration le garde sur Paramètres.
   await expectTouchable(page, '#backBtn');
   await page.locator('#backBtn').click();
   await expect(page.locator('#settingsView')).toBeVisible();
   await expect(page.locator('#setupGuide')).toContainText(/Termine la configuration initiale/i);
 
-  // Simule uniquement le résultat d'une calibration réussie pour tester le reste du parcours UI.
+  // Simule uniquement le résultat final d'une calibration réussie pour tester le parcours UI sans caméra physique en CI.
   await page.evaluate(() => {
     localStorage.setItem('cr3atix-vigilance-eye-calibration-v1', JSON.stringify({
       threshold: 0.21,
@@ -134,7 +141,6 @@ test('installed mode: settings controls are not covered and setup can be complet
   await expect(page.locator('#homeView')).toBeVisible();
   await expect(page.locator('#settingsView')).toBeHidden();
 
-  // Vérifie enfin que la navigation normale reste cliquable après la configuration.
   await expectTouchable(page, '#settingsBtn');
   await page.locator('#settingsBtn').click();
   await expect(page.locator('#settingsView')).toBeVisible();
