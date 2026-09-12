@@ -7,13 +7,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -24,67 +24,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
-      - name: Apply V1.5 vigilance chime
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          app=Path('app.js')
-          s=app.read_text(encoding='utf-8')
-
-          if 'function playCautionTone(){' not in s:
-              old='''  alarmVolume: 0.85,   calibrationSamples: [], calibrationTimer: null, calibrationActive: false, lastStatsPersist: 0\n};'''
-              new='''  alarmVolume: 0.85, calibrationSamples: [], calibrationTimer: null, calibrationActive: false, lastStatsPersist: 0,\n  lastVigilanceLabel: "EN VEILLE", lastVigilanceType: "idle", lastCautionToneAt: 0\n};'''
-              if old not in s:
-                  raise SystemExit('State marker not found')
-              s=s.replace(old,new,1)
-
-              old='''async function startCamera(){\n  if(state.running) return;\n  try{\n    await initLandmarker();'''
-              new='''function primeAudio(){\n  const AC=window.AudioContext||window.webkitAudioContext;\n  if(!AC) return;\n  try{\n    state.audioCtx=state.audioCtx||new AC();\n    if(state.audioCtx.state==="suspended") state.audioCtx.resume().catch(()=>{});\n  }catch{}\n}\n\nfunction playCautionTone(){\n  if(!state.running || state.alarmActive) return;\n  primeAudio();\n  const ctx=state.audioCtx;\n  if(!ctx || ctx.state!=="running") return;\n  const now=ctx.currentTime;\n  const master=Math.max(.0001,.085*state.alarmVolume);\n  [\n    {freq:880,gain:master,end:.30},\n    {freq:1760,gain:master*.34,end:.22}\n  ].forEach(({freq,gain,end})=>{\n    const osc=ctx.createOscillator(),amp=ctx.createGain();\n    osc.type="sine";osc.frequency.setValueAtTime(freq,now);\n    amp.gain.setValueAtTime(.0001,now);\n    amp.gain.exponentialRampToValueAtTime(Math.max(.0001,gain),now+.012);\n    amp.gain.exponentialRampToValueAtTime(.0001,now+end);\n    osc.connect(amp).connect(ctx.destination);osc.start(now);osc.stop(now+end+.02);\n  });\n}\n\nasync function startCamera(){\n  if(state.running) return;\n  primeAudio();\n  try{\n    await initLandmarker();'''
-              if old not in s:
-                  raise SystemExit('startCamera marker not found')
-              s=s.replace(old,new,1)
-
-              old='''    state.running=true; state.startedAt=performance.now(); state.lastStatsPersist=state.startedAt;\n    state.maxClosureMs=0; state.closureStartedAt=null; state.eyeAlertLatched=false; state.ignoredUntilOpen=false;'''
-              new='''    state.running=true; state.startedAt=performance.now(); state.lastStatsPersist=state.startedAt;\n    state.lastVigilanceLabel="EN VEILLE";state.lastVigilanceType="idle";state.lastCautionToneAt=0;\n    state.maxClosureMs=0; state.closureStartedAt=null; state.eyeAlertLatched=false; state.ignoredUntilOpen=false;'''
-              if old not in s:
-                  raise SystemExit('running marker not found')
-              s=s.replace(old,new,1)
-
-              old='''  state.faceDetected=false; els.faceState.textContent="OFF"; els.fpsValue.textContent="0";\n}'''
-              new='''  state.faceDetected=false; els.faceState.textContent="OFF"; els.fpsValue.textContent="0";\n  state.lastVigilanceLabel="EN VEILLE";state.lastVigilanceType="idle";state.lastCautionToneAt=0;\n}'''
-              if old not in s:
-                  raise SystemExit('stop marker not found')
-              s=s.replace(old,new,1)
-
-              old='''function setVigilance(label,hint,type){\n  els.vigilanceLevel.textContent=label;els.vigilanceHint.textContent=hint;\n  els.vigilanceLevel.style.color=type==="danger"?"var(--red)":type==="warn"?"var(--amber)":"var(--green)";\n}'''
-              new='''function setVigilance(label,hint,type){\n  const changed=label!==state.lastVigilanceLabel || type!==state.lastVigilanceType;\n  const nonGreen=type==="warn" || type==="danger";\n  const now=performance.now();\n  els.vigilanceLevel.textContent=label;els.vigilanceHint.textContent=hint;\n  els.vigilanceLevel.style.color=type==="danger"?"var(--red)":type==="warn"?"var(--amber)":"var(--green)";\n  if(changed && nonGreen && now-state.lastCautionToneAt>900){\n    state.lastCautionToneAt=now;\n    playCautionTone();\n  }\n  state.lastVigilanceLabel=label;state.lastVigilanceType=type;\n}'''
-              if old not in s:
-                  raise SystemExit('setVigilance marker not found')
-              s=s.replace(old,new,1)
-              app.write_text(s,encoding='utf-8')
-
-          sw=Path('sw.js')
-          t=sw.read_text(encoding='utf-8')
-          if 'cr3atix-vigilance-v1.5' not in t:
-              if 'cr3atix-vigilance-v1.4' not in t:
-                  raise SystemExit('Cache marker not found')
-              sw.write_text(t.replace('cr3atix-vigilance-v1.4','cr3atix-vigilance-v1.5'),encoding='utf-8')
-          PY
-
-          node --check app.js
-          node --check sw.js
-
-          if ! git diff --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add app.js sw.js
-            git commit -m "Ajoute le carillon de vigilance V1.5"
-            git push origin main
-          fi
-
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
