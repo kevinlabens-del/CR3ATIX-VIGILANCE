@@ -1,0 +1,11 @@
+{
+  "name": "cr3atix-vigilance",
+  "private": true,
+  "version": "1.9.6",
+  "scripts": {
+    "test:ui": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
+  }
+}
