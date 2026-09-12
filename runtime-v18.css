@@ -1,0 +1,12 @@
+/* CR3@TIX VIGILANCE V1.8 — Wake Lock & reprise */
+.status-pill.suspended{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 38%,var(--line));background:var(--amber-bg)}
+.status-pill.suspended .dot{background:var(--amber);animation:pulseDot .9s infinite alternate}
+.road-note[data-runtime="ok"]{color:#dff7e9;opacity:1;font-weight:800}
+.road-note[data-runtime="warn"]{color:#ffe1a6;opacity:1;font-weight:800}
+.road-note[data-runtime="danger"]{color:#ffd0d5;opacity:1;font-weight:800}
+.runtime-v18-toast{position:fixed;left:50%;top:max(88px,calc(env(safe-area-inset-top) + 72px));z-index:260;width:min(520px,calc(100vw - 28px));transform:translate(-50%,-12px);opacity:0;pointer-events:none;border-radius:14px;border:2px solid var(--line-strong);background:var(--surface);color:var(--text);box-shadow:0 18px 55px rgba(0,0,0,.24),var(--shadow);padding:12px 14px;font-size:11px;line-height:1.45;font-weight:800;transition:opacity .18s ease,transform .18s ease}
+.runtime-v18-toast.show{opacity:1;transform:translate(-50%,0)}
+.runtime-v18-toast.ok{border-color:color-mix(in srgb,var(--green) 60%,var(--line));background:var(--green-bg)}
+.runtime-v18-toast.warn{border-color:color-mix(in srgb,var(--amber) 68%,var(--line));background:var(--amber-bg)}
+.runtime-v18-toast.danger{border-color:color-mix(in srgb,var(--red) 72%,var(--line));background:var(--red-bg)}
+@media(max-width:640px){.runtime-v18-toast{top:max(78px,calc(env(safe-area-inset-top) + 66px));font-size:10.5px;padding:11px 12px;border-radius:12px}.road-note{max-width:44%;font-size:9px}}
