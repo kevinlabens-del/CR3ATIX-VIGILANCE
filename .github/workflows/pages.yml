@@ -7,13 +7,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -24,6 +24,126 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Apply V1.4 independent calibration
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          index = Path('index.html')
+          app = Path('app.js')
+          styles = Path('styles.css')
+          sw = Path('sw.js')
+
+          ih = index.read_text(encoding='utf-8')
+          aj = app.read_text(encoding='utf-8')
+          cs = styles.read_text(encoding='utf-8')
+          sj = sw.read_text(encoding='utf-8')
+
+          if 'id="calibrationCamera"' not in ih:
+              old = '''          <p class="section-desc">Regarde normalement la caméra, yeux ouverts, pendant 3 secondes. La caméra doit être active.</p>\n          <div class="calibration-box">\n            <div><span>Seuil actuel</span><strong id="eyeThresholdValue">0.21</strong><small id="calibrationState">(par défaut)</small></div>\n            <button id="calibrateBtn" class="btn secondary" disabled>CALIBRER — 3 S</button>\n          </div>'''
+              new = '''          <p class="section-desc">Calibration indépendante : lance-la ici, sans démarrer la surveillance sur l’accueil. Garde les yeux normalement ouverts et regarde la caméra pendant 3 secondes.</p>\n          <div class="calibration-preview">\n            <video id="calibrationCamera" playsinline muted></video>\n            <div id="calibrationCameraEmpty" class="calibration-camera-empty">\n              <div class="reticle small"></div>\n              <strong>CAMÉRA DE CALIBRATION</strong>\n              <span>Elle s’active uniquement pendant le calibrage</span>\n            </div>\n            <div class="calibration-face-badge">VISAGE <b id="calibrationFaceState">OFF</b></div>\n          </div>\n          <div class="calibration-box">\n            <div><span>Seuil actuel</span><strong id="eyeThresholdValue">0.21</strong><small id="calibrationState">(par défaut)</small></div>\n            <button id="calibrateBtn" class="btn secondary">LANCER LA CALIBRATION</button>\n          </div>'''
+              if old not in ih:
+                  raise SystemExit('Calibration HTML block not found')
+              ih = ih.replace(old, new, 1)
+
+          if 'id="testAlarmBtn"' not in ih:
+              old = '''          <div class="voice-actions">\n            <button id="recordBtn" class="btn ghost">● ENREGISTRER 5 S</button>'''
+              new = '''          <div class="voice-actions">\n            <button id="testAlarmBtn" class="btn secondary">▶ TESTER L'ALARME</button>\n            <button id="recordBtn" class="btn ghost">● ENREGISTRER 5 S</button>'''
+              if old not in ih:
+                  raise SystemExit('Voice actions block not found')
+              ih = ih.replace(old, new, 1)
+          index.write_text(ih, encoding='utf-8')
+
+          if 'calibrationCamera: $("#calibrationCamera")' not in aj:
+              aj = aj.replace(
+                  '  eyeThresholdValue: $("#eyeThresholdValue"), calibrationState: $("#calibrationState"),',
+                  '  eyeThresholdValue: $("#eyeThresholdValue"), calibrationState: $("#calibrationState"),\n  calibrationCamera: $("#calibrationCamera"), calibrationCameraEmpty: $("#calibrationCameraEmpty"), calibrationFaceState: $("#calibrationFaceState"),',
+                  1
+              )
+
+          if 'calibrationStream: null' not in aj:
+              aj = aj.replace(
+                  '  alarmVolume: 0.85, calibrationSamples: [], calibrationTimer: null, calibrationActive: false, lastStatsPersist: 0',
+                  '  alarmVolume: 0.85, calibrationSamples: [], calibrationTimer: null, calibrationActive: false, calibrationStream: null, calibrationOwnStream: false, lastStatsPersist: 0',
+                  1
+              )
+
+          if 'const CALIBRATION_KEY' not in aj:
+              aj = aj.replace(
+                  'const ALARM_VOLUME_KEY = "cr3atix-vigilance-alarm-volume-v1";',
+                  'const ALARM_VOLUME_KEY = "cr3atix-vigilance-alarm-volume-v1";\nconst CALIBRATION_KEY = "cr3atix-vigilance-eye-calibration-v1";',
+                  1
+              )
+              marker = 'function todayKey(){'
+              helper = '''function loadCalibration(){\n  try{\n    const saved=JSON.parse(localStorage.getItem(CALIBRATION_KEY)||"null");\n    if(saved && Number.isFinite(saved.threshold) && Number.isFinite(saved.baseline)){\n      state.eyeThreshold=Math.max(.12,Math.min(.34,saved.threshold));\n      state.openBaseline=Math.max(.16,Math.min(.6,saved.baseline));\n      els.eyeThresholdValue.textContent=state.eyeThreshold.toFixed(2);\n      els.chartThreshold.textContent=state.eyeThreshold.toFixed(2);\n      els.calibrationState.textContent="(calibration enregistrée)";\n      return;\n    }\n  }catch{}\n  els.eyeThresholdValue.textContent=state.eyeThreshold.toFixed(2);\n  els.chartThreshold.textContent=state.eyeThreshold.toFixed(2);\n  els.calibrationState.textContent="(par défaut)";\n}\nfunction saveCalibration(){\n  localStorage.setItem(CALIBRATION_KEY,JSON.stringify({\n    threshold:state.eyeThreshold,\n    baseline:state.openBaseline,\n    calibratedAt:new Date().toISOString()\n  }));\n}\n\n'''
+              if marker not in aj:
+                  raise SystemExit('todayKey marker missing')
+              aj = aj.replace(marker, helper + marker, 1)
+
+          if 'async function initLandmarker(silent=false)' not in aj:
+              aj = aj.replace(
+                  'async function initLandmarker(){\n  if(state.landmarker) return;\n  els.engineBadge.querySelector("span:last-child").textContent="CHARGEMENT IA";',
+                  'async function initLandmarker(silent=false){\n  if(state.landmarker) return;\n  if(!silent) els.engineBadge.querySelector("span:last-child").textContent="CHARGEMENT IA";',
+                  1
+              )
+
+          aj = aj.replace(
+              '  els.startBtn.disabled=on; els.stopBtn.disabled=!on; els.calibrateBtn.disabled=!on;',
+              '  els.startBtn.disabled=on; els.stopBtn.disabled=!on;',
+              1
+          )
+
+          if 'const originalLabel="LANCER LA CALIBRATION";' not in aj:
+              start = aj.find('async function calibrate(){')
+              end = aj.find('\nfunction drawHistory', start)
+              if start < 0 or end < 0:
+                  raise SystemExit('Calibration JS block not found')
+              new_cal = '''async function calibrate(){\n  if(state.calibrationActive) return;\n  state.calibrationActive=true;\n  state.calibrationSamples=[];\n  state.calibrationOwnStream=false;\n  els.calibrateBtn.disabled=true;\n  els.calibrateBtn.textContent="PRÉPARATION…";\n  els.calibrationState.textContent="(ouverture de la caméra…)";\n  els.calibrationFaceState.textContent="SEARCH";\n\n  const originalLabel="LANCER LA CALIBRATION";\n  let sourceMode="own";\n\n  const closeCalibrationCamera=()=>{\n    if(state.calibrationOwnStream && state.calibrationStream){\n      state.calibrationStream.getTracks().forEach(t=>t.stop());\n    }\n    state.calibrationStream=null;\n    state.calibrationOwnStream=false;\n    try{els.calibrationCamera.pause()}catch{}\n    els.calibrationCamera.srcObject=null;\n    els.calibrationCameraEmpty.style.display="flex";\n    els.calibrationFaceState.textContent="OFF";\n  };\n\n  const finish=(ok,message)=>{\n    state.calibrationActive=false;\n    if(state.calibrationTimer) cancelAnimationFrame(state.calibrationTimer);\n    state.calibrationTimer=null;\n    closeCalibrationCamera();\n    els.calibrateBtn.textContent=originalLabel;\n    els.calibrateBtn.disabled=false;\n    els.calibrationState.textContent=message;\n    if(ok){\n      els.calibrateBtn.classList.add("calibration-ok");\n      setTimeout(()=>els.calibrateBtn.classList.remove("calibration-ok"),1200);\n    }\n  };\n\n  try{\n    await initLandmarker(true);\n    if(state.running && state.stream){\n      sourceMode="monitor";\n      state.calibrationStream=state.stream;\n      els.calibrationCamera.srcObject=state.stream;\n    }else{\n      state.calibrationStream=await navigator.mediaDevices.getUserMedia({\n        video:{facingMode:"user",width:{ideal:960},height:{ideal:720}},\n        audio:false\n      });\n      state.calibrationOwnStream=true;\n      els.calibrationCamera.srcObject=state.calibrationStream;\n    }\n    await els.calibrationCamera.play();\n    els.calibrationCameraEmpty.style.display="none";\n  }catch(err){\n    console.error(err);\n    finish(false,"(échec : caméra refusée ou indisponible)");\n    return;\n  }\n\n  const started=performance.now();\n  let lastSecond=null;\n  let lastDetectAt=0;\n\n  const grab=()=>{\n    if(!state.calibrationActive) return;\n    const now=performance.now();\n    const elapsed=now-started;\n    const remaining=Math.max(0,3-Math.floor(elapsed/1000));\n    if(remaining!==lastSecond){\n      lastSecond=remaining;\n      els.calibrateBtn.textContent=remaining>0?`GARDE LES YEUX OUVERTS — ${remaining}`:"CALCUL…";\n    }\n\n    let faceOk=false;\n    let ear=NaN;\n    if(sourceMode==="monitor"){\n      faceOk=state.faceDetected && Number.isFinite(state.eyeEAR);\n      ear=state.eyeEAR;\n    }else if(els.calibrationCamera.readyState>=2 && now-lastDetectAt>55){\n      lastDetectAt=now;\n      try{\n        const result=state.landmarker.detectForVideo(els.calibrationCamera,now);\n        const faces=result.faceLandmarks||[];\n        if(faces.length){\n          const lm=faces[0];\n          const left=eyeAspect(lm,[33,160,158,133,153,144]);\n          const right=eyeAspect(lm,[362,385,387,263,373,380]);\n          ear=(left+right)/2;\n          faceOk=Number.isFinite(ear);\n        }\n      }catch(err){console.warn("Calibration detect",err)}\n    }\n\n    if(faceOk && ear>0.08 && ear<0.6){\n      state.calibrationSamples.push(ear);\n      els.calibrationFaceState.textContent="LOCK";\n      els.calibrationState.textContent=`(mesure… ${state.calibrationSamples.length} échantillons)`;\n    }else{\n      els.calibrationFaceState.textContent="SEARCH";\n      els.calibrationState.textContent="(cherche ton visage… garde les yeux ouverts)";\n    }\n\n    if(elapsed<3000){\n      state.calibrationTimer=requestAnimationFrame(grab);\n      return;\n    }\n\n    if(state.calibrationSamples.length<12){\n      finish(false,"(échec : visage insuffisamment détecté — réessaie face à la caméra)");\n      return;\n    }\n\n    const sorted=[...state.calibrationSamples].sort((a,b)=>a-b);\n    const lo=Math.floor(sorted.length*.15), hi=Math.max(lo+1,Math.ceil(sorted.length*.85));\n    const trimmed=sorted.slice(lo,hi);\n    const avg=trimmed.reduce((a,b)=>a+b,0)/trimmed.length;\n    if(!Number.isFinite(avg) || avg<=0){\n      finish(false,"(échec : mesure invalide)");\n      return;\n    }\n\n    state.openBaseline=avg;\n    state.eyeThreshold=Math.max(.12,Math.min(.34,avg*.58));\n    saveCalibration();\n    els.eyeThresholdValue.textContent=state.eyeThreshold.toFixed(2);\n    els.chartThreshold.textContent=state.eyeThreshold.toFixed(2);\n    finish(true,`(calibré ✓ ouverture ${avg.toFixed(2)} — enregistré)`);\n  };\n\n  grab();\n}\n'''
+              aj = aj[:start] + new_cal + aj[end:]
+
+          aj = aj.replace(
+              'loadAlarmVolume();renderToday();renderLog();drawHistory(performance.now());',
+              'loadAlarmVolume();loadCalibration();renderToday();renderLog();drawHistory(performance.now());',
+              1
+          )
+          app.write_text(aj, encoding='utf-8')
+
+          if '.calibration-preview{' not in cs:
+              marker = '.calibration-box{display:flex;'
+              addition = '''.calibration-preview{position:relative;overflow:hidden;aspect-ratio:16/9;border:1px solid rgba(43,231,255,.12);border-radius:14px;background:#03060d;margin-bottom:12px}.calibration-preview video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}.calibration-camera-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;background:radial-gradient(circle at center,rgba(43,231,255,.06),transparent 48%);color:#71809b}.calibration-camera-empty strong{font-size:10px;letter-spacing:.12em;color:#9eb0d1}.calibration-camera-empty span{font-size:9px}.reticle.small{width:44px;height:44px;margin-bottom:4px}.calibration-face-badge{position:absolute;top:9px;left:9px;padding:6px 8px;border-radius:8px;border:1px solid rgba(43,231,255,.16);background:rgba(3,7,15,.72);backdrop-filter:blur(6px);font-size:8px;letter-spacing:.1em;color:#73819e}.calibration-face-badge b{color:var(--cyan);margin-left:5px}\n'''
+              if marker not in cs:
+                  raise SystemExit('Calibration CSS marker not found')
+              cs = cs.replace(marker, addition + marker, 1)
+              styles.write_text(cs, encoding='utf-8')
+
+          if 'cr3atix-vigilance-v1.4' not in sj:
+              sj = sj.replace('cr3atix-vigilance-v1.3','cr3atix-vigilance-v1.4')
+              sw.write_text(sj, encoding='utf-8')
+          PY
+
+          node --check app.js
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          html=Path('index.html').read_text(encoding='utf-8')
+          js=Path('app.js').read_text(encoding='utf-8')
+          html_ids=set(re.findall(r'id="([^"]+)"',html))
+          js_ids=set(re.findall(r'\$\("#([^"\)]+)"\)',js))
+          missing=sorted(js_ids-html_ids)
+          if missing:
+              raise SystemExit(f'Missing DOM ids: {missing}')
+          PY
+
+          if ! git diff --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add index.html app.js styles.css sw.js
+            git commit -m "Ajoute la calibration autonome V1.4"
+            git push origin main
+          fi
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
