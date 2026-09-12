@@ -1,25 +1,32 @@
 <!doctype html>
-<html lang="fr">
+<html lang="fr" data-theme="day">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#050711" />
-  <meta name="description" content="CR3@TIX VIGILANCE — surveillance locale de vigilance par caméra frontale." />
+  <meta name="theme-color" content="#eef3f7" />
+  <meta name="description" content="CR3@TIX VIGILANCE — aide locale à la vigilance pour conducteurs, voiture et poids lourd." />
+  <script>
+    (() => {
+      try {
+        const mode = localStorage.getItem('cr3atix-vigilance-theme-v1') || 'auto';
+        const h = new Date().getHours();
+        const theme = mode === 'auto' ? ((h >= 20 || h < 7) ? 'night' : 'day') : mode;
+        document.documentElement.dataset.theme = theme;
+      } catch {}
+    })();
+  </script>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="styles.css" />
   <title>CR3@TIX VIGILANCE</title>
 </head>
 <body>
-  <div class="ambient ambient-a"></div>
-  <div class="ambient ambient-b"></div>
-
   <header class="topbar">
     <div class="brand">
       <div class="brand-mark" aria-hidden="true">C3</div>
       <div>
-        <div class="eyebrow">CR3@TIX // SAFETY LAB</div>
-        <h1>VIGILANCE</h1>
+        <div class="eyebrow">ASSISTANCE VIGILANCE ROUTIÈRE</div>
+        <h1>CR3@TIX VIGILANCE</h1>
       </div>
     </div>
     <div class="top-actions">
@@ -30,17 +37,23 @@
 
   <main class="app-shell">
     <section id="homeView" class="view active-view" aria-label="Accueil">
-      <div class="home-status-card glass">
+      <div class="road-banner">
+        <span class="road-icon">🚚</span>
+        <div><b>MODE CONDUITE</b><span>Lecture rapide • voiture & poids lourd</span></div>
+        <span class="road-note">Réglez l’appli avant de prendre la route.</span>
+      </div>
+
+      <section class="home-status-card glass">
         <div class="status-copy">
           <span class="eyebrow">ÉTAT DE VIGILANCE</span>
           <div id="vigilanceLevel" class="main-status">EN VEILLE</div>
           <div id="vigilanceHint" class="main-status-hint">caméra inactive</div>
         </div>
         <div class="session-time">
-          <span>SESSION</span>
+          <span>DURÉE SESSION</span>
           <strong id="watchTime">0:00</strong>
         </div>
-      </div>
+      </section>
 
       <section class="drive-layout">
         <div class="camera-shell glass">
@@ -48,7 +61,7 @@
           <div id="cameraEmpty" class="camera-empty">
             <div class="reticle"></div>
             <strong>CAMÉRA INACTIVE</strong>
-            <span>Lance la surveillance pour commencer</span>
+            <span>Appuyez sur Démarrer avant le trajet</span>
           </div>
           <div class="scanline"></div>
           <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
@@ -57,7 +70,7 @@
           <div id="riskOverlay" class="risk-overlay">
             <div class="risk-ring"></div>
             <strong>ALERTE FATIGUE</strong>
-            <span>Rouvre les yeux et arrête-toi si tu es fatigué.</span>
+            <span>Arrêtez-vous dans un endroit sûr et reposez-vous.</span>
           </div>
         </div>
 
@@ -72,12 +85,12 @@
           </button>
           <button id="ignoreAlertBtn" class="main-action dismiss" type="button" disabled>
             <span class="action-icon">×</span>
-            <span><b>COUPER L'ALARME</b><small>Ignorer cette alerte</small></span>
+            <span><b>COUPER L'ALARME</b><small>Acquitter cette alerte</small></span>
           </button>
         </div>
       </section>
 
-      <section class="essential-metrics">
+      <section class="essential-metrics" aria-label="Indicateurs essentiels">
         <article class="essential-card glass">
           <span>YEUX OUVERTS</span>
           <strong><b id="eyePct">—</b><small>%</small></strong>
@@ -97,7 +110,7 @@
 
       <section class="safety-strip">
         <span>⚠</span>
-        <p>Si tu ressens de la fatigue, arrête-toi dans un endroit sûr. Cette appli est une aide, pas un dispositif de sécurité certifié.</p>
+        <p><b>La fatigue impose une pause.</b> Cette appli est une aide à la vigilance et ne remplace jamais le repos ni les règles de sécurité routière.</p>
       </section>
     </section>
 
@@ -105,13 +118,27 @@
       <div class="settings-header">
         <button id="backBtn" class="back-btn" type="button">← ACCUEIL</button>
         <div>
-          <span class="eyebrow">CONFIGURATION</span>
+          <span class="eyebrow">CONFIGURATION AVANT TRAJET</span>
           <h2>Paramètres</h2>
-          <p>Réglages de détection, alarme et données de session.</p>
+          <p>Réglez l’affichage, la détection et les alarmes avant de conduire.</p>
         </div>
       </div>
 
       <div class="settings-sections">
+        <section class="settings-section glass wide-section">
+          <div class="section-heading">
+            <span class="section-icon">☀</span>
+            <div><span class="eyebrow">AFFICHAGE ROUTIER</span><h3>Mode jour / nuit</h3></div>
+          </div>
+          <p class="section-desc">Le mode Auto utilise l’heure du téléphone : clair en journée, plus doux la nuit.</p>
+          <div class="theme-mode" role="radiogroup" aria-label="Mode d'affichage">
+            <label><input type="radio" name="themeMode" value="auto" checked><span><b>AUTO</b><small>Recommandé</small></span></label>
+            <label><input type="radio" name="themeMode" value="day"><span><b>JOUR</b><small>Très lisible</small></span></label>
+            <label><input type="radio" name="themeMode" value="night"><span><b>NUIT</b><small>Moins éblouissant</small></span></label>
+          </div>
+          <div class="info-line">Mode actif : <b id="themeStatus">AUTO</b></div>
+        </section>
+
         <section class="settings-section glass">
           <div class="section-heading">
             <span class="section-icon">◉</span>
@@ -138,13 +165,13 @@
             <span class="section-icon">◎</span>
             <div><span class="eyebrow">CALIBRATION</span><h3>Calibration des yeux</h3></div>
           </div>
-          <p class="section-desc">Calibration indépendante : lance-la ici, sans démarrer la surveillance sur l’accueil. Garde les yeux normalement ouverts et regarde la caméra pendant 3 secondes.</p>
+          <p class="section-desc">Lancez-la ici sans démarrer la surveillance. Gardez les yeux naturellement ouverts pendant 3 secondes.</p>
           <div class="calibration-preview">
             <video id="calibrationCamera" playsinline muted></video>
             <div id="calibrationCameraEmpty" class="calibration-camera-empty">
               <div class="reticle small"></div>
               <strong>CAMÉRA DE CALIBRATION</strong>
-              <span>Elle s’active uniquement pendant le calibrage</span>
+              <span>Active uniquement pendant le calibrage</span>
             </div>
             <div class="calibration-face-badge">VISAGE <b id="calibrationFaceState">OFF</b></div>
           </div>
@@ -175,13 +202,12 @@
             </div>
           </div>
           <div class="voice-actions">
-            <button id="testAlarmBtn" class="btn secondary">▶ TESTER L'ALARME</button>
             <button id="recordBtn" class="btn ghost">● ENREGISTRER 5 S</button>
             <button id="listenBtn" class="btn ghost" disabled>▶ ÉCOUTER</button>
             <button id="deleteVoiceBtn" class="btn ghost" disabled>SUPPRIMER</button>
           </div>
           <div id="recordState" class="info-line">Aucun message enregistré.</div>
-          <div class="info-line">Le volume final dépend aussi du volume média de ton appareil.</div>
+          <div class="info-line">Le volume final dépend aussi du volume média de l’appareil.</div>
         </section>
 
         <section class="settings-section glass">
@@ -224,22 +250,44 @@
   </main>
 
   <footer>
-    <span>CR3@TIX VIGILANCE</span>
+    <span>CR3@TIX VIGILANCE · ROUTE</span>
     <span>Analyse locale • aucune image envoyée</span>
     <button id="installBtn" class="footer-install" hidden>INSTALLER L'APPLI</button>
   </footer>
 
   <script>
     (() => {
-      const home = document.getElementById("homeView");
-      const settings = document.getElementById("settingsView");
-      const showHome = () => { home.hidden = false; settings.hidden = true; window.scrollTo({top:0,behavior:"smooth"}); };
-      const showSettings = () => { home.hidden = true; settings.hidden = false; window.scrollTo({top:0,behavior:"smooth"}); };
-      document.getElementById("settingsBtn").addEventListener("click", showSettings);
-      document.getElementById("backBtn").addEventListener("click", showHome);
+      const home = document.getElementById('homeView');
+      const settings = document.getElementById('settingsView');
+      const themeStatus = document.getElementById('themeStatus');
+      const themeMeta = document.querySelector('meta[name="theme-color"]');
+      const THEME_KEY = 'cr3atix-vigilance-theme-v1';
+      const resolveAuto = () => {
+        const h = new Date().getHours();
+        return (h >= 20 || h < 7) ? 'night' : 'day';
+      };
+      const applyTheme = (mode, persist = true) => {
+        const safeMode = ['auto','day','night'].includes(mode) ? mode : 'auto';
+        const theme = safeMode === 'auto' ? resolveAuto() : safeMode;
+        document.documentElement.dataset.theme = theme;
+        if (persist) localStorage.setItem(THEME_KEY, safeMode);
+        if (themeMeta) themeMeta.content = theme === 'night' ? '#18232c' : '#eef3f7';
+        if (themeStatus) themeStatus.textContent = `${safeMode.toUpperCase()} · ${theme === 'night' ? 'NUIT' : 'JOUR'}`;
+        document.querySelectorAll('input[name="themeMode"]').forEach(r => r.checked = r.value === safeMode);
+      };
+      const loadTheme = () => applyTheme(localStorage.getItem(THEME_KEY) || 'auto', false);
+      const showHome = () => { home.hidden = false; settings.hidden = true; window.scrollTo({top:0,behavior:'smooth'}); };
+      const showSettings = () => { home.hidden = true; settings.hidden = false; loadTheme(); window.scrollTo({top:0,behavior:'smooth'}); };
+      document.getElementById('settingsBtn').addEventListener('click', showSettings);
+      document.getElementById('backBtn').addEventListener('click', showHome);
+      document.querySelectorAll('input[name="themeMode"]').forEach(r => r.addEventListener('change', () => applyTheme(r.value)));
       new MutationObserver(() => {
-        if (document.getElementById("riskOverlay").classList.contains("show")) showHome();
-      }).observe(document.getElementById("riskOverlay"), {attributes:true, attributeFilter:["class"]});
+        if (document.getElementById('riskOverlay').classList.contains('show')) showHome();
+      }).observe(document.getElementById('riskOverlay'), {attributes:true, attributeFilter:['class']});
+      loadTheme();
+      setInterval(() => {
+        if ((localStorage.getItem(THEME_KEY) || 'auto') === 'auto') applyTheme('auto', false);
+      }, 300000);
     })();
   </script>
   <script type="module" src="app.js"></script>
