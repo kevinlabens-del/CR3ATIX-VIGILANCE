@@ -12,6 +12,7 @@ const els = {
   closureDelay: $("#closureDelay"), closureDelayValue: $("#closureDelayValue"),
   yawnThreshold: $("#yawnThreshold"), yawnThresholdValue: $("#yawnThresholdValue"),
   eyeThresholdValue: $("#eyeThresholdValue"), calibrationState: $("#calibrationState"),
+  calibrationCamera: $("#calibrationCamera"), calibrationCameraEmpty: $("#calibrationCameraEmpty"), calibrationFaceState: $("#calibrationFaceState"),
   recordBtn: $("#recordBtn"), listenBtn: $("#listenBtn"), deleteVoiceBtn: $("#deleteVoiceBtn"),
   alarmVolume: $("#alarmVolume"), alarmVolumeValue: $("#alarmVolumeValue"),
   recordState: $("#recordState"), alertLog: $("#alertLog"), alertCount: $("#alertCount"),
@@ -33,6 +34,7 @@ const state = {
 
 const STORAGE_KEY = "cr3atix-vigilance-today-v1";
 const ALARM_VOLUME_KEY = "cr3atix-vigilance-alarm-volume-v1";
+const CALIBRATION_KEY = "cr3atix-vigilance-eye-calibration-v1";
 
 function loadAlarmVolume(){
   const stored=Number(localStorage.getItem(ALARM_VOLUME_KEY));
@@ -47,6 +49,30 @@ function setAlarmVolume(value){
   if(state.voiceAudio) state.voiceAudio.volume=state.alarmVolume;
 }
 
+
+function loadCalibration(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(CALIBRATION_KEY)||"null");
+    if(saved && Number.isFinite(saved.threshold) && Number.isFinite(saved.baseline)){
+      state.eyeThreshold=Math.max(.12,Math.min(.34,saved.threshold));
+      state.openBaseline=Math.max(.16,Math.min(.6,saved.baseline));
+      els.eyeThresholdValue.textContent=state.eyeThreshold.toFixed(2);
+      els.chartThreshold.textContent=state.eyeThreshold.toFixed(2);
+      els.calibrationState.textContent="(calibration enregistrée)";
+      return;
+    }
+  }catch{}
+  els.eyeThresholdValue.textContent=state.eyeThreshold.toFixed(2);
+  els.chartThreshold.textContent=state.eyeThreshold.toFixed(2);
+  els.calibrationState.textContent="(par défaut)";
+}
+function saveCalibration(){
+  localStorage.setItem(CALIBRATION_KEY,JSON.stringify({
+    threshold:state.eyeThreshold,
+    baseline:state.openBaseline,
+    calibratedAt:new Date().toISOString()
+  }));
+}
 
 function todayKey(){
   const d = new Date();
@@ -80,9 +106,9 @@ function mouthAspect(lm){
   return dist(lm[13],lm[14]) / Math.max(dist(lm[61],lm[291]),1e-6);
 }
 
-async function initLandmarker(){
+async function initLandmarker(silent=false){
   if(state.landmarker) return;
-  els.engineBadge.querySelector("span:last-child").textContent="CHARGEMENT IA";
+  if(!silent) els.engineBadge.querySelector("span:last-child").textContent="CHARGEMENT IA";
   const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
   state.landmarker = await FaceLandmarker.createFromOptions(vision,{
     baseOptions:{
@@ -125,7 +151,7 @@ function stopCamera(){
   state.faceDetected=false; els.faceState.textContent="OFF"; els.fpsValue.textContent="0";
 }
 function setRunningUI(on){
-  els.startBtn.disabled=on; els.stopBtn.disabled=!on; els.calibrateBtn.disabled=!on;
+  els.startBtn.disabled=on; els.stopBtn.disabled=!on;
   els.cameraEmpty.style.display=on?"none":"flex"; els.cameraShell.classList.toggle("active",on);
   els.liveChip.textContent=on?"LIVE":"PAUSE";els.liveChip.classList.toggle("live",on);
   els.engineBadge.className=`status-pill ${on?"live":"idle"}`;
@@ -307,21 +333,37 @@ function deleteVoice(){
 }
 
 async function calibrate(){
-  if(!state.running || state.calibrationActive) return;
+  if(state.calibrationActive) return;
   state.calibrationActive=true;
   state.calibrationSamples=[];
+  state.calibrationOwnStream=false;
   els.calibrateBtn.disabled=true;
-  els.calibrationState.textContent="(préparation…)";
+  els.calibrateBtn.textContent="PRÉPARATION…";
+  els.calibrationState.textContent="(ouverture de la caméra…)";
+  els.calibrationFaceState.textContent="SEARCH";
 
-  const originalLabel="CALIBRER — 3 S";
-  const started=performance.now();
-  let lastSecond=null;
+  const originalLabel="LANCER LA CALIBRATION";
+  let sourceMode="own";
+
+  const closeCalibrationCamera=()=>{
+    if(state.calibrationOwnStream && state.calibrationStream){
+      state.calibrationStream.getTracks().forEach(t=>t.stop());
+    }
+    state.calibrationStream=null;
+    state.calibrationOwnStream=false;
+    try{els.calibrationCamera.pause()}catch{}
+    els.calibrationCamera.srcObject=null;
+    els.calibrationCameraEmpty.style.display="flex";
+    els.calibrationFaceState.textContent="OFF";
+  };
 
   const finish=(ok,message)=>{
     state.calibrationActive=false;
+    if(state.calibrationTimer) cancelAnimationFrame(state.calibrationTimer);
     state.calibrationTimer=null;
+    closeCalibrationCamera();
     els.calibrateBtn.textContent=originalLabel;
-    els.calibrateBtn.disabled=!state.running;
+    els.calibrateBtn.disabled=false;
     els.calibrationState.textContent=message;
     if(ok){
       els.calibrateBtn.classList.add("calibration-ok");
@@ -329,21 +371,68 @@ async function calibrate(){
     }
   };
 
-  const grab=()=>{
-    if(!state.running){finish(false,"(annulée : caméra arrêtée)");return;}
+  try{
+    await initLandmarker(true);
+    if(state.running && state.stream){
+      sourceMode="monitor";
+      state.calibrationStream=state.stream;
+      els.calibrationCamera.srcObject=state.stream;
+    }else{
+      state.calibrationStream=await navigator.mediaDevices.getUserMedia({
+        video:{facingMode:"user",width:{ideal:960},height:{ideal:720}},
+        audio:false
+      });
+      state.calibrationOwnStream=true;
+      els.calibrationCamera.srcObject=state.calibrationStream;
+    }
+    await els.calibrationCamera.play();
+    els.calibrationCameraEmpty.style.display="none";
+  }catch(err){
+    console.error(err);
+    finish(false,"(échec : caméra refusée ou indisponible)");
+    return;
+  }
 
-    const elapsed=performance.now()-started;
+  const started=performance.now();
+  let lastSecond=null;
+  let lastDetectAt=0;
+
+  const grab=()=>{
+    if(!state.calibrationActive) return;
+    const now=performance.now();
+    const elapsed=now-started;
     const remaining=Math.max(0,3-Math.floor(elapsed/1000));
     if(remaining!==lastSecond){
       lastSecond=remaining;
-      els.calibrateBtn.textContent=remaining>0?`REGARDE LA CAMÉRA — ${remaining}`:"CALCUL…";
+      els.calibrateBtn.textContent=remaining>0?`GARDE LES YEUX OUVERTS — ${remaining}`:"CALCUL…";
     }
 
-    // On ne conserve que des valeurs plausibles avec un visage effectivement verrouillé.
-    if(state.faceDetected && Number.isFinite(state.eyeEAR) && state.eyeEAR>0.08 && state.eyeEAR<0.6){
-      state.calibrationSamples.push(state.eyeEAR);
+    let faceOk=false;
+    let ear=NaN;
+    if(sourceMode==="monitor"){
+      faceOk=state.faceDetected && Number.isFinite(state.eyeEAR);
+      ear=state.eyeEAR;
+    }else if(els.calibrationCamera.readyState>=2 && now-lastDetectAt>55){
+      lastDetectAt=now;
+      try{
+        const result=state.landmarker.detectForVideo(els.calibrationCamera,now);
+        const faces=result.faceLandmarks||[];
+        if(faces.length){
+          const lm=faces[0];
+          const left=eyeAspect(lm,[33,160,158,133,153,144]);
+          const right=eyeAspect(lm,[362,385,387,263,373,380]);
+          ear=(left+right)/2;
+          faceOk=Number.isFinite(ear);
+        }
+      }catch(err){console.warn("Calibration detect",err)}
+    }
+
+    if(faceOk && ear>0.08 && ear<0.6){
+      state.calibrationSamples.push(ear);
+      els.calibrationFaceState.textContent="LOCK";
       els.calibrationState.textContent=`(mesure… ${state.calibrationSamples.length} échantillons)`;
     }else{
+      els.calibrationFaceState.textContent="SEARCH";
       els.calibrationState.textContent="(cherche ton visage… garde les yeux ouverts)";
     }
 
@@ -361,7 +450,6 @@ async function calibrate(){
     const lo=Math.floor(sorted.length*.15), hi=Math.max(lo+1,Math.ceil(sorted.length*.85));
     const trimmed=sorted.slice(lo,hi);
     const avg=trimmed.reduce((a,b)=>a+b,0)/trimmed.length;
-
     if(!Number.isFinite(avg) || avg<=0){
       finish(false,"(échec : mesure invalide)");
       return;
@@ -369,9 +457,10 @@ async function calibrate(){
 
     state.openBaseline=avg;
     state.eyeThreshold=Math.max(.12,Math.min(.34,avg*.58));
+    saveCalibration();
     els.eyeThresholdValue.textContent=state.eyeThreshold.toFixed(2);
     els.chartThreshold.textContent=state.eyeThreshold.toFixed(2);
-    finish(true,`(calibré ✓ ouverture ${avg.toFixed(2)})`);
+    finish(true,`(calibré ✓ ouverture ${avg.toFixed(2)} — enregistré)`);
   };
 
   grab();
@@ -415,4 +504,4 @@ window.addEventListener("beforeunload",()=>{if(state.running)persistElapsed(perf
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();state.deferredInstall=e;els.installBtn.hidden=false});
 els.installBtn.addEventListener("click",async()=>{if(!state.deferredInstall)return;state.deferredInstall.prompt();await state.deferredInstall.userChoice;state.deferredInstall=null;els.installBtn.hidden=true});
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
-loadAlarmVolume();renderToday();renderLog();drawHistory(performance.now());
+loadAlarmVolume();loadCalibration();renderToday();renderLog();drawHistory(performance.now());

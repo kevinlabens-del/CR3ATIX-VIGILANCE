@@ -138,10 +138,19 @@
             <span class="section-icon">◎</span>
             <div><span class="eyebrow">CALIBRATION</span><h3>Calibration des yeux</h3></div>
           </div>
-          <p class="section-desc">Regarde normalement la caméra, yeux ouverts, pendant 3 secondes. La caméra doit être active.</p>
+          <p class="section-desc">Calibration indépendante : lance-la ici, sans démarrer la surveillance sur l’accueil. Garde les yeux normalement ouverts et regarde la caméra pendant 3 secondes.</p>
+          <div class="calibration-preview">
+            <video id="calibrationCamera" playsinline muted></video>
+            <div id="calibrationCameraEmpty" class="calibration-camera-empty">
+              <div class="reticle small"></div>
+              <strong>CAMÉRA DE CALIBRATION</strong>
+              <span>Elle s’active uniquement pendant le calibrage</span>
+            </div>
+            <div class="calibration-face-badge">VISAGE <b id="calibrationFaceState">OFF</b></div>
+          </div>
           <div class="calibration-box">
             <div><span>Seuil actuel</span><strong id="eyeThresholdValue">0.21</strong><small id="calibrationState">(par défaut)</small></div>
-            <button id="calibrateBtn" class="btn secondary" disabled>CALIBRER — 3 S</button>
+            <button id="calibrateBtn" class="btn secondary">LANCER LA CALIBRATION</button>
           </div>
         </section>
 
@@ -166,6 +175,7 @@
             </div>
           </div>
           <div class="voice-actions">
+            <button id="testAlarmBtn" class="btn secondary">▶ TESTER L'ALARME</button>
             <button id="recordBtn" class="btn ghost">● ENREGISTRER 5 S</button>
             <button id="listenBtn" class="btn ghost" disabled>▶ ÉCOUTER</button>
             <button id="deleteVoiceBtn" class="btn ghost" disabled>SUPPRIMER</button>
