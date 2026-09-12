@@ -12,7 +12,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages-v195
+  group: pages-v196
   cancel-in-progress: true
 
 jobs:
@@ -23,21 +23,41 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: Verify JavaScript syntax
         run: |
           node --check app.js
           node --check app-core-v16.js
           node --check recommendations-v17.js
           node --check runtime-v18.js
-          node --check onboarding-v195.js
-      - name: Verify V1.9.5 integrity
+          node --check onboarding-v196.js
+          node --check tests/onboarding.spec.js
+
+      - name: Verify V1.9.6 integrity
         run: node scripts/verify-v19.mjs
+
+      - name: Install browser test dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Run mobile interaction tests
+        run: npm run test:ui
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
         with:
           path: '.'
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
