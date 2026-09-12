@@ -6,7 +6,7 @@ const $=s=>document.querySelector(s);let promptEvent=null,timer=null;
 const runId=()=>globalThis.crypto?.randomUUID?.()||`setup-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const blankRun=(reason='initial')=>({id:runId(),reason,startedAt:new Date().toISOString(),calibrationConfirmed:false,detectionConfirmed:false,volumeConfirmed:false,voiceConfirmed:false,finishedAt:null});
 const fresh=()=>({version:19,schema:SCHEMA,completed:false,stage:'install',installDone:false,installSkipped:false,completedAt:null,run:null});
-function load(){try{return {...fresh(),...(JSON.parse(localStorage.getItem(K.setup)||'null')||{})}}catch{return fresh()}}
+function load(){try{const raw=JSON.parse(localStorage.getItem(K.setup)||'null');if(!raw)return fresh();return {...fresh(),...raw,schema:Number.isFinite(+raw.schema)?+raw.schema:0}}catch{return fresh()}}
 function save(p){const v={...load(),...p,version:19,schema:SCHEMA,lastCheckedAt:new Date().toISOString()};localStorage.setItem(K.setup,JSON.stringify(v));return v}
 function installed(){try{return window.matchMedia?.('(display-mode: standalone)').matches===true||window.matchMedia?.('(display-mode: fullscreen)').matches===true||navigator.standalone===true}catch{return false}}
 function calData(){try{return JSON.parse(localStorage.getItem(K.cal)||'null')}catch{return null}}
