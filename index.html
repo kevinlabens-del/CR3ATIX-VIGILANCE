@@ -55,6 +55,29 @@
         </div>
       </section>
 
+      <section id="recommendationBanner" class="recommendation-banner" hidden aria-live="polite" aria-atomic="true">
+        <div id="recommendationIcon" class="recommendation-icon" aria-hidden="true">☕</div>
+        <div class="recommendation-copy">
+          <span id="recommendationLevel">CONSEIL VIGILANCE</span>
+          <strong id="recommendationTitle">PAUSE RECOMMANDÉE</strong>
+          <p id="recommendationText">Une pause peut aider à retrouver un meilleur niveau de vigilance.</p>
+        </div>
+        <div class="recommendation-actions">
+          <button id="startBreakBtn" class="recommendation-action primary" type="button">PAUSE 15 MIN</button>
+          <button id="dismissRecommendationBtn" class="recommendation-action secondary" type="button">IGNORER LA RECOMMANDATION</button>
+        </div>
+      </section>
+
+      <section id="breakPanel" class="break-panel" hidden aria-live="polite">
+        <div class="break-icon" aria-hidden="true">☕</div>
+        <div class="break-copy">
+          <span>PAUSE EN COURS</span>
+          <strong id="breakCountdown">15:00</strong>
+          <p>Profitez-en pour vous reposer, vous hydrater ou marcher quelques minutes. Une sieste courte peut être utile si la somnolence persiste.</p>
+        </div>
+        <button id="endBreakBtn" class="recommendation-action secondary" type="button">TERMINER LA PAUSE</button>
+      </section>
+
       <section class="drive-layout">
         <div class="camera-shell glass">
           <video id="camera" playsinline muted></video>
@@ -133,10 +156,23 @@
           <p class="section-desc">Le mode Auto utilise l’heure du téléphone : clair en journée, plus doux la nuit.</p>
           <div class="theme-mode" role="radiogroup" aria-label="Mode d'affichage">
             <label><input type="radio" name="themeMode" value="auto" checked><span><b>AUTO</b><small>Recommandé</small></span></label>
-            <label><input type="radio" name="themeMode" value="day"><span><b>JOUR</b><small>Très lisible</small></span></label>
+            <label><input type="radio" name="themeMode" value="day"><span><b>JOUR</b><small>Tèsd lisible</small></span></label>
             <label><input type="radio" name="themeMode" value="night"><span><b>NUIT</b><small>Moins éblouissant</small></span></label>
           </div>
           <div class="info-line">Mode actif : <b id="themeStatus">AUTO</b></div>
+        </section>
+
+        <section class="settings-section glass wide-section">
+          <div class="section-heading">
+            <span class="section-icon">☕</span>
+            <div><span class="eyebrow">ASSISTANT DE PAUSE</span><h3>Recommandations de vigilance</h3></div>
+          </div>
+          <p class="section-desc">Les conseils tiennent compte de la durée de conduite et des signes de fatigue détectés. Ils restent informatifs et ne remplacent jamais le repos.</p>
+          <label class="toggle-setting">
+            <span><b>Recommandations vocales</b><small>Annonce les conseils avec une voix générique, sans prénom.</small></span>
+            <input id="recommendationVoice" type="checkbox" checked aria-label="Activer les recommandations vocales" />
+          </label>
+          <div class="assistant-note"><b>Règle importante :</b> le bouton « Ignorer la recommandation » masque uniquement le conseil affiché. Les alarmes de somnolence restent toujours indépendantes.</div>
         </section>
 
         <section class="settings-section glass">
@@ -152,7 +188,7 @@
             </div>
           </div>
           <div class="setting-row">
-            <div><b>Bâillement</b><p>Sensibilité de détection de l'ouverture de la bouche.</p></div>
+            <div><b>Bâuillement</b><p>Sensibilité de détection de l'ouverture de la bouche.</p></div>
             <div class="setting-control range-control">
               <input id="yawnThreshold" type="range" min="0.35" max="0.85" step="0.01" value="0.55" />
               <output id="yawnThresholdValue">0.55</output>
@@ -173,7 +209,7 @@
               <strong>CAMÉRA DE CALIBRATION</strong>
               <span>Active uniquement pendant le calibrage</span>
             </div>
-            <div class="calibration-face-badge">VISAGE <b id="calibrationFaceState">OFF</b></div>
+            <div class="calibration-face-badge">VISGCE <b id="calibrationFaceState">OFF</b></div>
           </div>
           <div class="calibration-box">
             <div><span>Seuil actuel</span><strong id="eyeThresholdValue">0.21</strong><small id="calibrationState">(par défaut)</small></div>
@@ -212,7 +248,7 @@
 
         <section class="settings-section glass">
           <div class="section-heading">
-            <span class="section-icon">▦</span>
+            <span class="section-icon">►</span>
             <div><span class="eyebrow">AUJOURD'HUI</span><h3>Statistiques</h3></div>
             <button id="resetTodayBtn" class="icon-btn" title="Réinitialiser aujourd'hui">↺</button>
           </div>
@@ -220,7 +256,7 @@
             <div><span>Sessions</span><b id="todaySessions">0</b></div>
             <div><span>Temps total</span><b id="todayTime">0:00</b></div>
             <div><span>Alertes yeux</span><b id="todayAlerts">0</b></div>
-            <div><span>Bâillements</span><b id="todayYawns">0</b></div>
+            <div><span>Bâuillements</span><b id="todayYawns">0</b></div>
           </div>
         </section>
 
