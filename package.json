@@ -1,7 +1,7 @@
 {
   "name": "cr3atix-vigilance",
   "private": true,
-  "version": "1.9.6",
+  "version": "1.9.7",
   "scripts": {
     "test:ui": "playwright test"
   },
