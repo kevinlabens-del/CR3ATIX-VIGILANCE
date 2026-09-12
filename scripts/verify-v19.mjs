@@ -23,8 +23,9 @@ if(onboard.includes("'(display-mode: fullscreen)'")) fail('fullscreen ne doit pa
 if(!onboard.includes("if (!isInstalled()) {\n    installationGate('Installation obligatoire avant les paramètres.')")) fail('les paramètres ne sont pas protégés par le verrou d’installation');
 if(!onboard.includes("after !== before && calOK()")) fail('la calibration doit être refaite pendant la session de configuration');
 if(!onboardCss.includes('.first-run-overlay')||!onboardCss.includes('.setup-dock')) fail('styles onboarding incomplets');
-if(!sw.includes('cr3atix-vigilance-v1.9.4')) fail('cache V1.9.4 absent');
+if(!sw.includes('cr3atix-vigilance-v1.9.4.1')) fail('cache V1.9.4.1 absent');
 for(const asset of ['runtime-v18.js','runtime-v18.css','onboarding-v194.js','onboarding-v19.css']) if(!sw.includes(asset)) fail(`asset absent du cache: ${asset}`);
 if(sw.includes('onboarding-mandatory-v193.js')||sw.includes('onboarding-v19.js')) fail('ancien onboarding encore mis en cache');
+for(const token of ['self.clients.claim()','self.clients.matchAll({type:"window"})','client.navigate(client.url)']) if(!sw.includes(token)) fail(`rafraîchissement forcé incomplet: ${token}`);
 if(!sw.includes('e.request.mode==="navigate"')) fail('fallback service worker trop large');
-console.log('V1.9.4 verification OK');
+console.log('V1.9.4.1 verification OK');
