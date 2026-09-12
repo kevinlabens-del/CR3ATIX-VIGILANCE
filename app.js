@@ -10,5 +10,11 @@ runtimeStyles.rel = "stylesheet";
 runtimeStyles.href = "./runtime-v18.css";
 document.head.appendChild(runtimeStyles);
 
+const onboardingStyles = document.createElement("link");
+onboardingStyles.rel = "stylesheet";
+onboardingStyles.href = "./onboarding-v19.css";
+document.head.appendChild(onboardingStyles);
+
 import "./recommendations-v17.js";
 import "./runtime-v18.js";
+import "./onboarding-v19.js";
