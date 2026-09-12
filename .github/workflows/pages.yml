@@ -7,13 +7,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -24,67 +24,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
-      - name: Apply V1.2 alarm volume update
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          def replace_once(path, old, new):
-              p = Path(path)
-              s = p.read_text(encoding='utf-8')
-              if new in s:
-                  return False
-              if old not in s:
-                  raise SystemExit(f'Pattern not found in {path}')
-              p.write_text(s.replace(old, new, 1), encoding='utf-8')
-              return True
-
-          replace_once('index.html', '''        </div>\n        <div class="voice-actions">''', '''        </div>\n        <div class="alarm-volume-block">\n          <div class="alarm-volume-head"><span>VOLUME ALARME</span><output id="alarmVolumeValue">85 %</output></div>\n          <input id="alarmVolume" type="range" min="0" max="100" step="1" value="85" aria-label="Volume de l'alarme" />\n          <div class="range-ends"><span>Muet</span><span>Maximum appli</span></div>\n          <div class="info-line volume-note">Le volume final dépend aussi du volume média de ton appareil.</div>\n        </div>\n        <div class="voice-actions">''')
-
-          css = Path('styles.css')
-          s = css.read_text(encoding='utf-8')
-          marker = '.voice-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}'
-          if '.alarm-volume-block{' not in s:
-              addition = '''.alarm-volume-block{margin-top:14px;padding:12px;border:1px solid rgba(129,155,220,.09);border-radius:12px;background:rgba(255,255,255,.018)}\n.alarm-volume-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;font-size:9px;letter-spacing:.12em;color:#7d8aa8;font-weight:900}.alarm-volume-head output{font-size:12px;letter-spacing:0;color:#e8f8ff;background:rgba(43,231,255,.07);border:1px solid rgba(43,231,255,.18);border-radius:8px;padding:5px 8px;min-width:54px;text-align:center}.alarm-volume-block input{width:100%;accent-color:var(--cyan)}.volume-note{margin-top:8px}\n'''
-              if marker not in s:
-                  raise SystemExit('CSS marker not found')
-              css.write_text(s.replace(marker, addition + marker, 1), encoding='utf-8')
-
-          app = Path('app.js')
-          s = app.read_text(encoding='utf-8')
-          if 'alarmVolume: $("#alarmVolume")' not in s:
-              s = s.replace('  recordBtn: $("#recordBtn"), listenBtn: $("#listenBtn"), deleteVoiceBtn: $("#deleteVoiceBtn"),\n', '  recordBtn: $("#recordBtn"), listenBtn: $("#listenBtn"), deleteVoiceBtn: $("#deleteVoiceBtn"),\n  alarmVolume: $("#alarmVolume"), alarmVolumeValue: $("#alarmVolumeValue"),\n', 1)
-              s = s.replace('  voiceAudio: null, mediaRecorder: null, recordingStream: null, deferredInstall: null,\n', '  voiceAudio: null, mediaRecorder: null, recordingStream: null, deferredInstall: null,\n  alarmVolume: 0.85, ', 1)
-              s = s.replace('const STORAGE_KEY = "cr3atix-vigilance-today-v1";\n', '''const STORAGE_KEY = "cr3atix-vigilance-today-v1";\nconst ALARM_VOLUME_KEY = "cr3atix-vigilance-alarm-volume-v1";\n\nfunction loadAlarmVolume(){\n  const stored=Number(localStorage.getItem(ALARM_VOLUME_KEY));\n  state.alarmVolume=Number.isFinite(stored)?Math.max(0,Math.min(1,stored)):0.85;\n  els.alarmVolume.value=String(Math.round(state.alarmVolume*100));\n  els.alarmVolumeValue.textContent=`${Math.round(state.alarmVolume*100)} %`;\n}\nfunction setAlarmVolume(value){\n  state.alarmVolume=Math.max(0,Math.min(1,Number(value)/100));\n  localStorage.setItem(ALARM_VOLUME_KEY,String(state.alarmVolume));\n  els.alarmVolumeValue.textContent=`${Math.round(state.alarmVolume*100)} %`;\n  if(state.voiceAudio) state.voiceAudio.volume=state.alarmVolume;\n}\n\n''', 1)
-              s = s.replace('g.gain.setValueAtTime(.0001,state.audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.12,state.audioCtx.currentTime+.03);', 'const peak=Math.max(.0001,.22*state.alarmVolume);\n    g.gain.setValueAtTime(.0001,state.audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(peak,state.audioCtx.currentTime+.03);', 1)
-              s = s.replace('const a=new Audio(state.voiceUrl);a.loop=true;a.play().catch(()=>{});state.voiceAudio=a;', 'const a=new Audio(state.voiceUrl);a.loop=true;a.volume=state.alarmVolume;a.play().catch(()=>{});state.voiceAudio=a;', 1)
-              s = s.replace('function listenVoice(){if(state.voiceUrl){const a=new Audio(state.voiceUrl);a.play().catch(()=>{})}}', 'function listenVoice(){if(state.voiceUrl){const a=new Audio(state.voiceUrl);a.volume=state.alarmVolume;a.play().catch(()=>{})}}', 1)
-              s = s.replace('els.recordBtn.addEventListener("click",recordVoice);els.listenBtn.addEventListener("click",listenVoice);els.deleteVoiceBtn.addEventListener("click",deleteVoice);', 'els.recordBtn.addEventListener("click",recordVoice);els.listenBtn.addEventListener("click",listenVoice);els.deleteVoiceBtn.addEventListener("click",deleteVoice);\nels.alarmVolume.addEventListener("input",()=>setAlarmVolume(els.alarmVolume.value));', 1)
-              s = s.replace('renderToday();renderLog();drawHistory(performance.now());', 'loadAlarmVolume();renderToday();renderLog();drawHistory(performance.now());', 1)
-              app.write_text(s, encoding='utf-8')
-
-          sw = Path('sw.js')
-          sw.write_text(sw.read_text(encoding='utf-8').replace('cr3atix-vigilance-v1"', 'cr3atix-vigilance-v1.2"'), encoding='utf-8')
-
-          readme = Path('README.md')
-          s = readme.read_text(encoding='utf-8')
-          if 'volume global d’alarme 0–100 %' not in s:
-              s = s.replace('- sirène générée localement\n', '- sirène générée localement\n- volume global d’alarme 0–100 % pour sirène et voix, mémorisé localement\n', 1)
-              readme.write_text(s, encoding='utf-8')
-          PY
-
-          node --check app.js
-
-          if ! git diff --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add index.html styles.css app.js sw.js README.md
-            git commit -m "Ajoute le réglage du volume d'alarme v1.2"
-            git push origin main
-          fi
-
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
