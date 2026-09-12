@@ -30,6 +30,7 @@ jobs:
           node --check recommendations-v17.js
           node --check runtime-v18.js
           node --check onboarding-v19.js
+          node --check onboarding-mandatory-v193.js
       - name: Verify V1.9 integrity
         run: node scripts/verify-v19.mjs
       - name: Setup Pages
