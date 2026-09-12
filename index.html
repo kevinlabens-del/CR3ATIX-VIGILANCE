@@ -161,6 +161,12 @@
           <label><input type="radio" name="alarmMode" value="voice"><span>Ma voix</span></label>
           <label><input type="radio" name="alarmMode" value="both"><span>Les deux</span></label>
         </div>
+        <div class="alarm-volume-block">
+          <div class="alarm-volume-head"><span>VOLUME ALARME</span><output id="alarmVolumeValue">85 %</output></div>
+          <input id="alarmVolume" type="range" min="0" max="100" step="1" value="85" aria-label="Volume de l'alarme" />
+          <div class="range-ends"><span>Muet</span><span>Maximum appli</span></div>
+          <div class="info-line volume-note">Le volume final dépend aussi du volume média de ton appareil.</div>
+        </div>
         <div class="voice-actions">
           <button id="recordBtn" class="btn ghost">● ENREGISTRER 5 S</button>
           <button id="listenBtn" class="btn ghost" disabled>▶ ÉCOUTER</button>

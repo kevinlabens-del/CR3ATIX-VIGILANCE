@@ -11,6 +11,7 @@ Prototype fonctionnel d'une appli web anti-somnolence, réimplémentée de zéro
 - détection de bâillement
 - calibration personnalisée 3 secondes
 - sirène générée localement
+- volume global d’alarme 0–100 % pour sirène et voix, mémorisé localement
 - enregistrement d'un message vocal 5 secondes
 - journal d'alertes et export CSV
 - statistiques du jour dans localStorage

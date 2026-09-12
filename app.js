@@ -13,6 +13,7 @@ const els = {
   yawnThreshold: $("#yawnThreshold"), yawnThresholdValue: $("#yawnThresholdValue"),
   eyeThresholdValue: $("#eyeThresholdValue"), calibrationState: $("#calibrationState"),
   recordBtn: $("#recordBtn"), listenBtn: $("#listenBtn"), deleteVoiceBtn: $("#deleteVoiceBtn"),
+  alarmVolume: $("#alarmVolume"), alarmVolumeValue: $("#alarmVolumeValue"),
   recordState: $("#recordState"), alertLog: $("#alertLog"), alertCount: $("#alertCount"),
   ignoreAlertBtn: $("#ignoreAlertBtn"), exportBtn: $("#exportBtn"), resetTodayBtn: $("#resetTodayBtn"),
   todaySessions: $("#todaySessions"), todayTime: $("#todayTime"), todayAlerts: $("#todayAlerts"),
@@ -27,10 +28,25 @@ const state = {
   yawns: 0, lastYawnAt: 0, yawnLatch: false, history: [], perclosSamples: [],
   audioCtx: null, sirenTimer: null, oscillators: [], voiceBlob: null, voiceUrl: null,
   voiceAudio: null, mediaRecorder: null, recordingStream: null, deferredInstall: null,
-  calibrationSamples: [], calibrationTimer: null, calibrationActive: false, lastStatsPersist: 0
+  alarmVolume: 0.85,   calibrationSamples: [], calibrationTimer: null, calibrationActive: false, lastStatsPersist: 0
 };
 
 const STORAGE_KEY = "cr3atix-vigilance-today-v1";
+const ALARM_VOLUME_KEY = "cr3atix-vigilance-alarm-volume-v1";
+
+function loadAlarmVolume(){
+  const stored=Number(localStorage.getItem(ALARM_VOLUME_KEY));
+  state.alarmVolume=Number.isFinite(stored)?Math.max(0,Math.min(1,stored)):0.85;
+  els.alarmVolume.value=String(Math.round(state.alarmVolume*100));
+  els.alarmVolumeValue.textContent=`${Math.round(state.alarmVolume*100)} %`;
+}
+function setAlarmVolume(value){
+  state.alarmVolume=Math.max(0,Math.min(1,Number(value)/100));
+  localStorage.setItem(ALARM_VOLUME_KEY,String(state.alarmVolume));
+  els.alarmVolumeValue.textContent=`${Math.round(state.alarmVolume*100)} %`;
+  if(state.voiceAudio) state.voiceAudio.volume=state.alarmVolume;
+}
+
 
 function todayKey(){
   const d = new Date();
@@ -250,7 +266,8 @@ function startSiren(){
     if(!state.alarmActive)return;
     const o=state.audioCtx.createOscillator(),g=state.audioCtx.createGain();
     o.type="sawtooth";o.frequency.setValueAtTime(650,state.audioCtx.currentTime);o.frequency.exponentialRampToValueAtTime(1100,state.audioCtx.currentTime+.32);
-    g.gain.setValueAtTime(.0001,state.audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.12,state.audioCtx.currentTime+.03);g.gain.exponentialRampToValueAtTime(.0001,state.audioCtx.currentTime+.38);
+    const peak=Math.max(.0001,.22*state.alarmVolume);
+    g.gain.setValueAtTime(.0001,state.audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(peak,state.audioCtx.currentTime+.03);g.gain.exponentialRampToValueAtTime(.0001,state.audioCtx.currentTime+.38);
     o.connect(g).connect(state.audioCtx.destination);o.start();o.stop(state.audioCtx.currentTime+.4);
     state.oscillators.push(o);
   };
@@ -262,7 +279,7 @@ function stopSiren(){
 }
 function startVoiceLoop(){
   stopVoice(); if(!state.voiceUrl)return;
-  const a=new Audio(state.voiceUrl);a.loop=true;a.play().catch(()=>{});state.voiceAudio=a;
+  const a=new Audio(state.voiceUrl);a.loop=true;a.volume=state.alarmVolume;a.play().catch(()=>{});state.voiceAudio=a;
 }
 function stopVoice(){if(state.voiceAudio){state.voiceAudio.pause();state.voiceAudio.currentTime=0;state.voiceAudio=null}}
 
@@ -283,7 +300,7 @@ async function recordVoice(){
     setTimeout(()=>{if(rec.state!=="inactive")rec.stop()},5000);
   }catch{els.recordState.textContent="Microphone refusé ou indisponible."}
 }
-function listenVoice(){if(state.voiceUrl){const a=new Audio(state.voiceUrl);a.play().catch(()=>{})}}
+function listenVoice(){if(state.voiceUrl){const a=new Audio(state.voiceUrl);a.volume=state.alarmVolume;a.play().catch(()=>{})}}
 function deleteVoice(){
   stopVoice();if(state.voiceUrl)URL.revokeObjectURL(state.voiceUrl);state.voiceUrl=null;state.voiceBlob=null;
   els.listenBtn.disabled=true;els.deleteVoiceBtn.disabled=true;els.recordState.textContent="Aucun message enregistré.";
@@ -392,9 +409,10 @@ els.closureDelay.addEventListener("input",()=>els.closureDelayValue.textContent=
 els.yawnThreshold.addEventListener("input",()=>els.yawnThresholdValue.textContent=Number(els.yawnThreshold.value).toFixed(2));
 els.ignoreAlertBtn.addEventListener("click",()=>{state.ignoredUntilOpen=true;stopAlarm()});
 els.recordBtn.addEventListener("click",recordVoice);els.listenBtn.addEventListener("click",listenVoice);els.deleteVoiceBtn.addEventListener("click",deleteVoice);
+els.alarmVolume.addEventListener("input",()=>setAlarmVolume(els.alarmVolume.value));
 els.exportBtn.addEventListener("click",exportCSV);els.resetTodayBtn.addEventListener("click",resetToday);
 window.addEventListener("beforeunload",()=>{if(state.running)persistElapsed(performance.now(),true)});
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();state.deferredInstall=e;els.installBtn.hidden=false});
 els.installBtn.addEventListener("click",async()=>{if(!state.deferredInstall)return;state.deferredInstall.prompt();await state.deferredInstall.userChoice;state.deferredInstall=null;els.installBtn.hidden=true});
 if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
-renderToday();renderLog();drawHistory(performance.now());
+loadAlarmVolume();renderToday();renderLog();drawHistory(performance.now());
