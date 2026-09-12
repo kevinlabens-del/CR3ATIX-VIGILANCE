@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#050711" />
+  <meta name="description" content="CR3@TIX VIGILANCE — surveillance locale de vigilance par caméra frontale." />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>CR3@TIX VIGILANCE</title>
+</head>
+<body>
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">C3</div>
+      <div>
+        <div class="eyebrow">CR3@TIX // SAFETY LAB</div>
+        <h1>VIGILANCE</h1>
+      </div>
+    </div>
+    <div id="engineBadge" class="status-pill idle"><span class="dot"></span><span>EN VEILLE</span></div>
+  </header>
+
+  <main class="dashboard">
+    <section class="hero glass">
+      <div class="hero-copy">
+        <span class="chip">ANTI-SOMNOLENCE // LOCAL ONLY</span>
+        <h2>Garde les yeux ouverts.<br><span>Le système surveille le reste.</span></h2>
+        <p>
+          Analyse du visage directement sur ton appareil. Aucune image n'est enregistrée ni envoyée.
+        </p>
+        <div class="hero-actions">
+          <button id="startBtn" class="btn primary">ACTIVER LA CAMÉRA</button>
+          <button id="stopBtn" class="btn ghost" disabled>ARRÊTER</button>
+        </div>
+      </div>
+
+      <div class="camera-shell">
+        <video id="camera" playsinline muted></video>
+        <div id="cameraEmpty" class="camera-empty">
+          <div class="reticle"></div>
+          <strong>CAMÉRA OFFLINE</strong>
+          <span>Active la caméra pour démarrer l'analyse</span>
+        </div>
+        <div class="scanline"></div>
+        <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+        <div class="camera-hud top-left"><span>FACE TRACK</span><b id="faceState">OFF</b></div>
+        <div class="camera-hud top-right"><span>FPS</span><b id="fpsValue">0</b></div>
+        <div id="riskOverlay" class="risk-overlay">
+          <div class="risk-ring"></div>
+          <strong>ALERTE FATIGUE</strong>
+          <span>Rouvre les yeux et arrête-toi si tu es fatigué.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="metrics-grid">
+      <article class="metric glass accent">
+        <div class="metric-label">OUVERTURE DES YEUX</div>
+        <div class="metric-value"><span id="eyePct">—</span><small>%</small></div>
+        <div class="meter"><i id="eyeBar"></i></div>
+      </article>
+      <article class="metric glass">
+        <div class="metric-label">TEMPS SURVEILLÉ</div>
+        <div class="metric-value mono" id="watchTime">0:00</div>
+        <div class="metric-sub">session en cours</div>
+      </article>
+      <article class="metric glass danger-soft">
+        <div class="metric-label">PLUS LONGUE FERMETURE</div>
+        <div class="metric-value"><span id="maxClosure">0.0</span><small>s</small></div>
+        <div class="metric-sub">sur cette session</div>
+      </article>
+      <article class="metric glass">
+        <div class="metric-label">BÂILLEMENTS</div>
+        <div class="metric-value" id="yawnCount">0</div>
+        <div class="metric-sub">détectés</div>
+      </article>
+      <article class="metric glass">
+        <div class="metric-label">PERCLOS / 60 S</div>
+        <div class="metric-value"><span id="perclos">0</span><small>%</small></div>
+        <div class="metric-sub">temps yeux fermés</div>
+      </article>
+      <article class="metric glass">
+        <div class="metric-label">NIVEAU DE VIGILANCE</div>
+        <div class="metric-value status-text" id="vigilanceLevel">EN VEILLE</div>
+        <div class="metric-sub" id="vigilanceHint">caméra inactive</div>
+      </article>
+    </section>
+
+    <section class="two-col">
+      <article class="glass panel">
+        <div class="panel-title">
+          <div>
+            <span class="eyebrow">LIVE TELEMETRY</span>
+            <h3>Historique — 30 secondes</h3>
+          </div>
+          <span id="liveChip" class="mini-status">PAUSE</span>
+        </div>
+        <canvas id="historyCanvas" height="180"></canvas>
+        <div class="chart-legend"><span><i class="legend-eye"></i> ouverture yeux</span><span class="threshold-label">seuil calibré <b id="chartThreshold">0.21</b></span></div>
+      </article>
+
+      <article class="glass panel">
+        <div class="panel-title">
+          <div>
+            <span class="eyebrow">TODAY</span>
+            <h3>Statistiques du jour</h3>
+          </div>
+          <button id="resetTodayBtn" class="icon-btn" title="Réinitialiser aujourd'hui">↺</button>
+        </div>
+        <div class="today-grid">
+          <div><span>Sessions</span><b id="todaySessions">0</b></div>
+          <div><span>Temps total</span><b id="todayTime">0:00</b></div>
+          <div><span>Alertes yeux</span><b id="todayAlerts">0</b></div>
+          <div><span>Bâillements</span><b id="todayYawns">0</b></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="settings-grid">
+      <article class="glass panel">
+        <span class="eyebrow">DETECTION</span>
+        <h3>Sensibilité yeux</h3>
+        <p>Déclenche l'alerte lorsque les yeux restent fermés plus longtemps que ce délai.</p>
+        <div class="range-row">
+          <input id="closureDelay" type="range" min="0.6" max="3.0" step="0.1" value="1.2" />
+          <output id="closureDelayValue">1.2 s</output>
+        </div>
+        <div class="range-ends"><span>Réactif</span><span>Tolérant</span></div>
+      </article>
+
+      <article class="glass panel">
+        <span class="eyebrow">DETECTION</span>
+        <h3>Sensibilité bâillement</h3>
+        <p>Ajuste le ratio d'ouverture de la bouche nécessaire pour compter un bâillement.</p>
+        <div class="range-row">
+          <input id="yawnThreshold" type="range" min="0.35" max="0.85" step="0.01" value="0.55" />
+          <output id="yawnThresholdValue">0.55</output>
+        </div>
+        <div class="range-ends"><span>Détecte tôt</span><span>Bâillement franc</span></div>
+      </article>
+
+      <article class="glass panel">
+        <span class="eyebrow">CALIBRATION</span>
+        <h3>Calibration des yeux</h3>
+        <p>Regarde normalement la caméra, yeux ouverts, pendant 3 secondes.</p>
+        <button id="calibrateBtn" class="btn secondary" disabled>CALIBRER — 3 S</button>
+        <div class="info-line">Seuil actuel : <b id="eyeThresholdValue">0.21</b> <span id="calibrationState">(par défaut)</span></div>
+      </article>
+
+      <article class="glass panel">
+        <span class="eyebrow">ALARM SYSTEM</span>
+        <h3>Son de réveil</h3>
+        <p>Choisis ce qui boucle jusqu'au retour à un état normal.</p>
+        <div class="segmented" role="radiogroup" aria-label="Mode alarme">
+          <label><input type="radio" name="alarmMode" value="siren" checked><span>Sirène</span></label>
+          <label><input type="radio" name="alarmMode" value="voice"><span>Ma voix</span></label>
+          <label><input type="radio" name="alarmMode" value="both"><span>Les deux</span></label>
+        </div>
+        <div class="voice-actions">
+          <button id="recordBtn" class="btn ghost">● ENREGISTRER 5 S</button>
+          <button id="listenBtn" class="btn ghost" disabled>▶ ÉCOUTER</button>
+          <button id="deleteVoiceBtn" class="btn ghost" disabled>SUPPRIMER</button>
+        </div>
+        <div id="recordState" class="info-line">Aucun message enregistré.</div>
+      </article>
+    </section>
+
+    <section class="glass panel alerts-panel">
+      <div class="panel-title">
+        <div>
+          <span class="eyebrow">EVENT LOG</span>
+          <h3>Alertes <span id="alertCount">0</span></h3>
+        </div>
+        <div class="log-actions">
+          <button id="ignoreAlertBtn" class="btn ghost" disabled>IGNORER L'ALARME</button>
+          <button id="exportBtn" class="btn secondary">EXPORTER CSV</button>
+        </div>
+      </div>
+      <div id="alertLog" class="alert-log">
+        <div class="empty-log">Aucune alerte pour l'instant.</div>
+      </div>
+    </section>
+
+    <section class="safety-banner">
+      <strong>⚠ VIGILANCE ROUTIÈRE</strong>
+      <p>Cette appli est une aide et ne garantit pas l'absence de somnolence. Si tu ressens de la fatigue au volant, arrête-toi dans un endroit sûr et repose-toi. Ne compte jamais sur une alarme pour continuer à conduire fatigué.</p>
+    </section>
+  </main>
+
+  <footer>
+    <span>CR3@TIX VIGILANCE</span>
+    <span>Analyse locale • aucune image envoyée</span>
+    <button id="installBtn" class="footer-install" hidden>INSTALLER L'APPLI</button>
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
