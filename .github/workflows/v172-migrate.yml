@@ -1,0 +1,38 @@
+name: Apply V1.7.2 stabilization
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v172-migration
+  cancel-in-progress: false
+
+jobs:
+  stabilize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Apply corrections
+        run: python3 scripts/migrate-v172.py
+      - name: Verify corrected files
+        run: |
+          node --check app.js
+          node --check app-core-v16.js
+          node --check recommendations-v17.js
+          node scripts/verify-v172.mjs
+      - name: Commit V1.7.2
+        run: |
+          git config user.name "kevinlabens-del"
+          git config user.email "kevin.labens@gmail.com"
+          git add -A
+          git commit -m "Stabilise CR3ATIX VIGILANCE V1.7.2"
+          git push

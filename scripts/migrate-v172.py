@@ -1,0 +1,381 @@
+from pathlib import Path
+import re
+
+
+def replace_once(text, old, new, label):
+    if old not in text:
+        raise SystemExit(f"Pattern not found: {label}")
+    return text.replace(old, new, 1)
+
+
+def sub_once(text, pattern, repl, label):
+    out, n = re.subn(pattern, repl, text, count=1, flags=re.S)
+    if n != 1:
+        raise SystemExit(f"Regex replacement failed ({n}): {label}")
+    return out
+
+
+core_path = Path('app-core-v16.js')
+core = core_path.read_text(encoding='utf-8')
+
+core = replace_once(core,
+'  eyeAlertLatched: false, ignoredUntilOpen: false, alarmActive: false, alertEvents: [],\n  yawns: 0, lastYawnAt: 0, yawnLatch: false, history: [], perclosSamples: [],',
+'  eyeAlertLatched: false, alarmActive: false, alertEvents: [], alarmSnoozeUntil: 0, lastEyeAlertAt: 0,\n  yawns: 0, lastYawnAt: 0, yawnLatch: false, yawnStartedAt: null, history: [], perclosSamples: [],',
+'state alert/yawn fields')
+core = replace_once(core,
+'  lastVigilanceLabel: "EN VEILLE", lastVigilanceType: "idle", lastCautionToneAt: 0\n};',
+'  lastVigilanceLabel: "EN VEILLE", lastVigilanceType: "idle", lastCautionToneAt: 0, faceMissingSince: null\n};',
+'face missing state')
+core = replace_once(core,
+'const CALIBRATION_KEY = "cr3atix-vigilance-eye-calibration-v1";',
+'const CALIBRATION_KEY = "cr3atix-vigilance-eye-calibration-v1";\nconst DETECTION_SETTINGS_KEY = "cr3atix-vigilance-detection-settings-v172";',
+'settings key')
+
+settings_code = r'''
+function loadDetectionSettings(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(DETECTION_SETTINGS_KEY)||"null");
+    if(saved){
+      if(Number.isFinite(Number(saved.closureDelay))) els.closureDelay.value=String(Math.max(.6,Math.min(3,Number(saved.closureDelay))));
+      if(Number.isFinite(Number(saved.yawnThreshold))) els.yawnThreshold.value=String(Math.max(.35,Math.min(.85,Number(saved.yawnThreshold))));
+      if(["siren","voice","both"].includes(saved.alarmMode)){
+        const r=document.querySelector(`input[name="alarmMode"][value="${saved.alarmMode}"]`);if(r)r.checked=true;
+      }
+    }
+  }catch{}
+  els.closureDelayValue.textContent=`${Number(els.closureDelay.value).toFixed(1)} s`;
+  els.yawnThresholdValue.textContent=Number(els.yawnThreshold.value).toFixed(2);
+}
+function saveDetectionSettings(){
+  localStorage.setItem(DETECTION_SETTINGS_KEY,JSON.stringify({
+    closureDelay:Number(els.closureDelay.value),
+    yawnThreshold:Number(els.yawnThreshold.value),
+    alarmMode:document.querySelector('input[name="alarmMode"]:checked')?.value||"siren"
+  }));
+}
+
+'''
+core = replace_once(core, '\n\nfunction loadCalibration(){', '\n\n'+settings_code+'function loadCalibration(){', 'settings functions')
+
+perclos_code = r'''
+function calculatePerclos(now){
+  const cutoff=now-60000;
+  while(state.perclosSamples.length>2 && state.perclosSamples[1].t<cutoff) state.perclosSamples.shift();
+  let closedMs=0,totalMs=0;
+  for(let i=0;i<state.perclosSamples.length;i++){
+    const cur=state.perclosSamples[i];
+    const nextT=i+1<state.perclosSamples.length?state.perclosSamples[i+1].t:now;
+    const start=Math.max(cur.t,cutoff),end=Math.min(nextT,now);
+    if(end>start){const dt=end-start;totalMs+=dt;if(cur.closed)closedMs+=dt;}
+  }
+  return totalMs>0?100*closedMs/totalMs:0;
+}
+
+'''
+core = replace_once(core, '\nasync function initLandmarker(silent=false){', '\n'+perclos_code+'async function initLandmarker(silent=false){', 'perclos helper')
+
+new_init = r'''async function initLandmarker(silent=false){
+  if(state.landmarker) return;
+  if(!silent) els.engineBadge.querySelector("span:last-child").textContent="CHARGEMENT IA";
+  const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+  const common={runningMode:"VIDEO",numFaces:1,outputFaceBlendshapes:false,outputFacialTransformationMatrixes:false};
+  const modelAssetPath="https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+  try{
+    state.landmarker=await FaceLandmarker.createFromOptions(vision,{...common,baseOptions:{modelAssetPath,delegate:"GPU"}});
+  }catch(gpuError){
+    console.warn("GPU indisponible, bascule CPU",gpuError);
+    state.landmarker=await FaceLandmarker.createFromOptions(vision,{...common,baseOptions:{modelAssetPath,delegate:"CPU"}});
+  }
+}
+
+function primeAudio'''
+core = sub_once(core, r'async function initLandmarker\(silent=false\)\{.*?\n\}\n\nfunction primeAudio', new_init, 'GPU CPU fallback')
+
+core = replace_once(core,
+'    state.maxClosureMs=0; state.closureStartedAt=null; state.eyeAlertLatched=false; state.ignoredUntilOpen=false;\n    state.yawns=0; state.lastYawnAt=0; state.yawnLatch=false; state.history=[];state.perclosSamples=[];',
+'    state.maxClosureMs=0; state.closureStartedAt=null; state.eyeAlertLatched=false; state.alarmSnoozeUntil=0; state.lastEyeAlertAt=0; state.faceMissingSince=null;\n    state.yawns=0; state.lastYawnAt=0; state.yawnLatch=false; state.yawnStartedAt=null; state.history=[];state.perclosSamples=[];',
+'start reset')
+core = replace_once(core,
+'  state.lastVigilanceLabel="EN VEILLE";state.lastVigilanceType="idle";state.lastCautionToneAt=0;\n}',
+'  state.lastVigilanceLabel="EN VEILLE";state.lastVigilanceType="idle";state.lastCautionToneAt=0;state.faceMissingSince=null;state.alarmSnoozeUntil=0;\n}',
+'stop reset')
+core = replace_once(core,
+'  if(!on){els.vigilanceLevel.textContent="EN VEILLE";els.vigilanceHint.textContent="caméra inactive";els.eyePct.textContent="—";els.eyeBar.style.width="0%"}',
+'  const statusCard=document.querySelector(".home-status-card");if(statusCard)statusCard.dataset.vigilance="idle";\n  if(!on){els.vigilanceLevel.textContent="EN VEILLE";els.vigilanceHint.textContent="caméra inactive";els.eyePct.textContent="—";els.eyeBar.style.width="0%"}',
+'idle status card')
+core = replace_once(core, '  if(delta>=1000 || force){', '  if(delta>=15000 || force){', 'stats write interval')
+
+core = replace_once(core,
+'''  if(!faces.length){
+    state.faceDetected=false;
+    els.faceState.textContent="SEARCH";
+    setVigilance("VISAGE ABSENT","replace le visage face à la caméra","warn");
+    return;
+  }
+  state.faceDetected=true;
+  els.faceState.textContent="LOCK";''',
+'''  if(!faces.length){
+    state.faceDetected=false;
+    els.faceState.textContent="SEARCH";
+    if(state.faceMissingSince===null) state.faceMissingSince=now;
+    if(now-state.faceMissingSince>=1500) setVigilance("VISAGE ABSENT","replace le visage face à la caméra","warn");
+    else els.vigilanceHint.textContent="recherche du visage…";
+    return;
+  }
+  state.faceMissingSince=null;
+  state.faceDetected=true;
+  els.faceState.textContent="LOCK";''',
+'face absence debounce')
+
+core = replace_once(core,
+'''  state.perclosSamples.push({t:now,closed:isClosed});
+  state.perclosSamples=state.perclosSamples.filter(s=>now-s.t<=60000);
+  const perclos=state.perclosSamples.length?100*state.perclosSamples.filter(s=>s.closed).length/state.perclosSamples.length:0;
+  els.perclos.textContent=Math.round(perclos);''',
+'''  state.perclosSamples.push({t:now,closed:isClosed});
+  const perclos=calculatePerclos(now);
+  els.perclos.textContent=Math.round(perclos);''',
+'time weighted perclos')
+
+core = replace_once(core,
+'''    if(closureMs>=thresholdMs && !state.eyeAlertLatched && !state.ignoredUntilOpen){
+      state.eyeAlertLatched=true;
+      triggerAlert("eyes",`Yeux fermés ${(closureMs/1000).toFixed(1)} s`);
+    }''',
+'''    if(closureMs>=thresholdMs && !state.alarmActive && now>=state.alarmSnoozeUntil && (!state.eyeAlertLatched || now-state.lastEyeAlertAt>=5000)){
+      const firstForClosure=!state.eyeAlertLatched;
+      state.eyeAlertLatched=true;state.lastEyeAlertAt=now;
+      if(firstForClosure) triggerAlert("eyes",`Yeux fermés ${(closureMs/1000).toFixed(1)} s`);
+      else {addLog("eyes","Alerte relancée",`Yeux toujours fermés ${(closureMs/1000).toFixed(1)} s`);startAlarm();}
+    }''',
+'temporary alarm acknowledgement')
+core = replace_once(core,
+'    state.closureStartedAt=null;state.eyeAlertLatched=false;state.ignoredUntilOpen=false;',
+'    state.closureStartedAt=null;state.eyeAlertLatched=false;state.alarmSnoozeUntil=0;',
+'eye reopen reset')
+
+old_yawn = '''  const yawnThreshold=Number(els.yawnThreshold.value);
+  if(mouth>yawnThreshold){
+    if(!state.yawnLatch && now-state.lastYawnAt>5000){
+      state.yawnLatch=true;state.lastYawnAt=now;state.yawns++;els.yawnCount.textContent=state.yawns;
+      today.yawns++;saveToday();addLog("yawn","Bâillement détecté",`Ratio bouche ${mouth.toFixed(2)}`);
+    }
+  }else if(mouth<yawnThreshold*.72){state.yawnLatch=false}
+}'''
+new_yawn = '''  const yawnThreshold=Number(els.yawnThreshold.value);
+  if(mouth>yawnThreshold){
+    if(state.yawnStartedAt===null) state.yawnStartedAt=now;
+    if(!state.yawnLatch && now-state.yawnStartedAt>=900 && now-state.lastYawnAt>5000){
+      state.yawnLatch=true;state.lastYawnAt=now;state.yawns++;els.yawnCount.textContent=state.yawns;
+      today.yawns++;saveToday();addLog("yawn","Bâillement détecté",`Ouverture prolongée ${((now-state.yawnStartedAt)/1000).toFixed(1)} s`);
+    }
+  }else{
+    if(mouth<yawnThreshold*.72) state.yawnLatch=false;
+    if(mouth<yawnThreshold*.90) state.yawnStartedAt=null;
+  }
+}'''
+core = replace_once(core, old_yawn, new_yawn, 'yawn duration')
+
+new_vigilance = r'''function setVigilance(label,hint,type){
+  const changed=label!==state.lastVigilanceLabel || type!==state.lastVigilanceType;
+  const nonGreen=type==="warn" || type==="danger";
+  const now=performance.now();
+  els.vigilanceLevel.textContent=label;els.vigilanceHint.textContent=hint;
+  els.vigilanceLevel.style.color=type==="danger"?"var(--red)":type==="warn"?"var(--amber)":"var(--green)";
+  const card=document.querySelector(".home-status-card");if(card)card.dataset.vigilance=type;
+  if(changed && nonGreen && now-state.lastCautionToneAt>900){state.lastCautionToneAt=now;playCautionTone();}
+  state.lastVigilanceLabel=label;state.lastVigilanceType=type;
+}
+function triggerAlert'''
+core = sub_once(core, r'function setVigilance\(label,hint,type\)\{.*?\n\}\nfunction triggerAlert', new_vigilance, 'status card state')
+
+new_alarm = r'''function startAlarm(){
+  if(state.alarmActive) return;
+  state.alarmActive=true;els.riskOverlay.classList.add("show");els.ignoreAlertBtn.disabled=false;
+  els.engineBadge.className="status-pill alert";els.engineBadge.querySelector("span:last-child").textContent="ALERTE FATIGUE";
+  if("speechSynthesis" in window) try{speechSynthesis.cancel()}catch{}
+  const mode=document.querySelector('input[name="alarmMode"]:checked')?.value||"siren";
+  const hasVoice=Boolean(state.voiceUrl);
+  if(mode==="siren"||mode==="both"||(mode==="voice"&&!hasVoice)) startSiren();
+  if((mode==="voice"||mode==="both")&&hasVoice) startVoiceLoop();
+  if(mode==="voice"&&!hasVoice) els.recordState.textContent="Aucune voix enregistrée : sirène de secours activée.";
+}
+function stopAlarm'''
+core = sub_once(core, r'function startAlarm\(\)\{.*?\n\}\nfunction stopAlarm', new_alarm, 'voice fallback')
+
+core = replace_once(core,
+'function drawHistory(now){\n  const c=els.historyCanvas,rect=c.getBoundingClientRect(),dpr=Math.max(1,Math.min(2,devicePixelRatio||1));',
+'function drawHistory(now){\n  const c=els.historyCanvas;if(!c||c.offsetParent===null)return;\n  const rect=c.getBoundingClientRect(),dpr=Math.max(1,Math.min(2,devicePixelRatio||1));',
+'hidden chart optimization')
+
+core = replace_once(core,
+'''els.closureDelay.addEventListener("input",()=>els.closureDelayValue.textContent=`${Number(els.closureDelay.value).toFixed(1)} s`);
+els.yawnThreshold.addEventListener("input",()=>els.yawnThresholdValue.textContent=Number(els.yawnThreshold.value).toFixed(2));
+els.ignoreAlertBtn.addEventListener("click",()=>{state.ignoredUntilOpen=true;stopAlarm()});''',
+'''els.closureDelay.addEventListener("input",()=>{els.closureDelayValue.textContent=`${Number(els.closureDelay.value).toFixed(1)} s`;saveDetectionSettings()});
+els.yawnThreshold.addEventListener("input",()=>{els.yawnThresholdValue.textContent=Number(els.yawnThreshold.value).toFixed(2);saveDetectionSettings()});
+document.querySelectorAll('input[name="alarmMode"]').forEach(r=>r.addEventListener("change",saveDetectionSettings));
+els.ignoreAlertBtn.addEventListener("click",()=>{state.alarmSnoozeUntil=performance.now()+5000;stopAlarm()});''',
+'persistent settings and alarm snooze')
+core = replace_once(core,
+'loadAlarmVolume();loadCalibration();renderToday();renderLog();drawHistory(performance.now());',
+'loadAlarmVolume();loadCalibration();loadDetectionSettings();renderToday();renderLog();document.querySelector(".home-status-card")?.setAttribute("data-vigilance","idle");drawHistory(performance.now());',
+'initialization')
+
+if 'ignoredUntilOpen' in core:
+    raise SystemExit('ignoredUntilOpen still present after patch')
+core_path.write_text(core,encoding='utf-8')
+
+index_path=Path('index.html')
+index=index_path.read_text(encoding='utf-8')
+replacements={
+    'IGNORER LA RECOMMANDATION':'ANNULER LA RECOMMANDATION',
+    '« Ignorer la recommandation »':'« Annuler la recommandation »',
+    'Tèsd lisible':'Très lisible',
+    'Bâuillement':'Bâillement',
+    'Bâuillements':'Bâillements',
+    'VISGCE':'VISAGE',
+    '>PAUSE 15 MIN<':'>JE SUIS ARRÊTÉ · PAUSE 15 MIN<'
+}
+for a,b in replacements.items(): index=index.replace(a,b)
+index_path.write_text(index,encoding='utf-8')
+
+css_path=Path('recommendations-v17.css')
+css=css_path.read_text(encoding='utf-8')
+css=css.replace('#dismissRecommendationBtn{font-size:0;font-weight:950;border-width:2px}\n#dismissRecommendationBtn::after{content:"ANNULER LA RECOMMANDATION";font-size:10px;letter-spacing:.025em}', '#dismissRecommendationBtn{font-weight:950;border-width:2px}')
+css=css.replace('  #dismissRecommendationBtn::after{font-size:10px}\n','')
+css_path.write_text(css,encoding='utf-8')
+
+styles_path=Path('styles.css')
+styles=styles_path.read_text(encoding='utf-8')
+marker='/* V1.7.2 status coherence */'
+if marker not in styles:
+    styles += r'''
+
+/* V1.7.2 status coherence */
+.home-status-card{border-left-color:var(--blue)}
+.home-status-card[data-vigilance="idle"]{border-left-color:var(--blue)}
+.home-status-card[data-vigilance="ok"]{border-left-color:var(--green);background:color-mix(in srgb,var(--green) 3%,var(--surface))}
+.home-status-card[data-vigilance="warn"]{border-left-color:var(--amber);background:color-mix(in srgb,var(--amber) 7%,var(--surface))}
+.home-status-card[data-vigilance="danger"]{border-left-color:var(--red);background:color-mix(in srgb,var(--red) 8%,var(--surface))}
+.camera-hud.top-right{display:none}
+'''
+styles_path.write_text(styles,encoding='utf-8')
+
+recommendations = r'''(() => {
+  const $ = s => document.querySelector(s);
+  const els = {
+    banner: $('#recommendationBanner'), icon: $('#recommendationIcon'), level: $('#recommendationLevel'),
+    title: $('#recommendationTitle'), text: $('#recommendationText'), startBreak: $('#startBreakBtn'),
+    dismiss: $('#dismissRecommendationBtn'), breakPanel: $('#breakPanel'), breakCountdown: $('#breakCountdown'),
+    endBreak: $('#endBreakBtn'), voice: $('#recommendationVoice'), vigilance: $('#vigilanceLevel'),
+    perclos: $('#perclos'), yawns: $('#yawnCount'), startBtn: $('#startBtn'), stopBtn: $('#stopBtn'),
+    riskOverlay: $('#riskOverlay'), alarmVolume: $('#alarmVolume')
+  };
+  if (!els.banner || !els.dismiss || !els.vigilance) return;
+
+  const VOICE_KEY='cr3atix-vigilance-recommendation-voice-v1';
+  const TRIP_KEY='cr3atix-vigilance-trip-v172';
+  const RECS={
+    plan90:{severity:'info',icon:'🕒',level:'PRÉVENTION',title:'PRÉVOYEZ UNE PAUSE',text:'Le temps de conduite cumulé approche de 2 heures. Prévoyez un arrêt dans les 30 prochaines minutes, même si la vigilance reste bonne.',voice:'Le temps de conduite approche de deux heures. Prévoyez une pause dans les trente prochaines minutes.',break:false,cooldown:Infinity},
+    break120:{severity:'warn',icon:'☕',level:'PAUSE RECOMMANDÉE',title:'IL EST TEMPS DE FAIRE UNE PAUSE',text:'Environ 2 heures de conduite cumulée se sont écoulées. Arrêtez-vous dans un endroit sûr pendant 15 à 20 minutes avant de poursuivre.',voice:'Environ deux heures de conduite se sont écoulées. Une pause de quinze à vingt minutes est recommandée dans un endroit sûr.',break:true,cooldown:30*60*1000},
+    yawns:{severity:'warn',icon:'🥱',level:'SIGNES DE FATIGUE',title:'DES BÂILLEMENTS SE RÉPÈTENT',text:'Plusieurs bâillements ont été détectés récemment. Prévoyez un arrêt prochainement. Hydratez-vous, marchez un peu et reposez-vous. Un café peut aider temporairement mais ne remplace pas le repos.',voice:'Plusieurs bâillements ont été détectés récemment. Prévoyez un arrêt prochainement et reposez-vous. Le café ne remplace pas le repos.',break:true,cooldown:15*60*1000},
+    repeated:{severity:'warn',icon:'⚠',level:'VIGILANCE EN BAISSE',title:'LES SIGNES DE FATIGUE SE RÉPÈTENT',text:'Plusieurs épisodes distincts de baisse de vigilance ont été détectés récemment. Arrêtez-vous au prochain endroit sécurisé et reposez-vous avant de continuer.',voice:'Les signes de fatigue se répètent. Arrêtez-vous au prochain endroit sécurisé et reposez-vous avant de continuer.',break:true,cooldown:10*60*1000},
+    highFatigue:{severity:'danger',icon:'🛑',level:'FATIGUE ÉLEVÉE',title:'UNE PAUSE EST NÉCESSAIRE',text:'La vigilance est fortement dégradée. Arrêtez-vous dès que possible en sécurité. Une sieste de 15 à 20 minutes est recommandée si la somnolence persiste.',voice:'La vigilance est fortement dégradée. Arrêtez-vous dès que possible en sécurité et reposez-vous. Une sieste courte est recommandée si la somnolence persiste.',break:true,cooldown:8*60*1000},
+    danger:{severity:'danger',icon:'🛑',level:'SOMNOLENCE DÉTECTÉE',title:'ARRÊTEZ-VOUS DÈS QUE POSSIBLE',text:'Ne poursuivez pas le trajet tant que la somnolence persiste. Rejoignez un endroit sûr, reposez-vous et envisagez une sieste de 15 à 20 minutes avant de reprendre.',voice:'Somnolence détectée. Arrêtez-vous dès que possible dans un endroit sûr. Ne poursuivez pas le trajet tant que la somnolence persiste.',break:true,cooldown:5*60*1000}
+  };
+  const rank={info:1,warn:2,danger:3};
+  const state={running:false,lastLabel:'EN VEILLE',fatigueEvents:[],fatigueEpisodeActive:false,greenSince:0,yawnEvents:[],lastYawnCount:0,active:null,dismissed:new Map(),breakActive:false,breakEndsAt:0,breakTimer:null,voiceEnabled:true,tripMs:0,lastTickEpoch:Date.now(),lastTripPersistAt:0,stoppedAt:0};
+
+  function alarmActive(){return Boolean(els.riskOverlay?.classList.contains('show'));}
+  function volume(){return Math.max(0,Math.min(1,Number(els.alarmVolume?.value??85)/100));}
+  function speak(text){if(!state.voiceEnabled||alarmActive()||!text||!('speechSynthesis' in window))return;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='fr-FR';u.rate=.96;u.pitch=1;u.volume=volume();speechSynthesis.speak(u);}catch{}}
+  function loadTrip(){try{const saved=JSON.parse(localStorage.getItem(TRIP_KEY)||'null');if(saved&&Number.isFinite(saved.ms)&&Number.isFinite(saved.lastSeen)&&Date.now()-saved.lastSeen<20*60*1000)state.tripMs=Math.max(0,saved.ms);}catch{}}
+  function saveTrip(){localStorage.setItem(TRIP_KEY,JSON.stringify({ms:Math.max(0,state.tripMs),lastSeen:Date.now()}));state.lastTripPersistAt=Date.now();}
+  function resetTrip(){state.tripMs=0;state.lastTickEpoch=Date.now();saveTrip();}
+  function updateTrip(running){const now=Date.now(),delta=Math.max(0,Math.min(2500,now-state.lastTickEpoch));state.lastTickEpoch=now;if(running){state.tripMs+=delta;if(now-state.lastTripPersistAt>=10000)saveTrip();}else if(state.stoppedAt&&now-state.stoppedAt>=20*60*1000&&state.tripMs>0)resetTrip();}
+  function hideRecommendation(cancelSpeech=true){state.active=null;els.banner.hidden=true;if(cancelSpeech&&'speechSynthesis'in window)try{speechSynthesis.cancel()}catch{}}
+  function showRecommendation(id){const rec=RECS[id];if(!rec||state.breakActive||alarmActive())return;const now=Date.now(),until=state.dismissed.get(id)||0;if(until>now)return;if(state.active){if(state.active.id===id)return;const cur=RECS[state.active.id];if(cur&&rank[cur.severity]>rank[rec.severity])return;}state.active={id,shownAt:now};els.banner.className=`recommendation-banner ${rec.severity}`;els.icon.textContent=rec.icon;els.level.textContent=rec.level;els.title.textContent=rec.title;els.text.textContent=rec.text;els.startBreak.hidden=!rec.break;els.banner.hidden=false;speak(rec.voice);}
+  function dismissRecommendation(){if(!state.active)return;const rec=RECS[state.active.id],now=Date.now(),cooldown=rec?.cooldown??10*60*1000;state.dismissed.set(state.active.id,cooldown===Infinity?Infinity:now+cooldown);hideRecommendation(true);}
+  function updateFatigueEpisodes(label,now){const fatigue=['ATTENTION','DANGER','FATIGUE ÉLEVÉE'].includes(label);if(fatigue){state.greenSince=0;if(!state.fatigueEpisodeActive){state.fatigueEpisodeActive=true;state.fatigueEvents.push(now);}}else if(label==='VIGILANT'&&state.fatigueEpisodeActive){if(!state.greenSince)state.greenSince=now;if(now-state.greenSince>=10000){state.fatigueEpisodeActive=false;state.greenSince=0;}}state.fatigueEvents=state.fatigueEvents.filter(t=>now-t<=10*60*1000);}
+  function updateYawns(now){const count=Number(els.yawns?.textContent)||0;if(count>state.lastYawnCount){for(let i=state.lastYawnCount;i<count;i++)state.yawnEvents.push(now);}state.lastYawnCount=count;state.yawnEvents=state.yawnEvents.filter(t=>now-t<=10*60*1000);}
+  function checkRecommendations(){if(!state.running||state.breakActive||alarmActive()){if(alarmActive())hideRecommendation(true);return;}const label=(els.vigilance?.textContent||'').trim();const p=Number(els.perclos?.textContent)||0;let candidate=null;if(label==='DANGER')candidate='danger';else if(label==='FATIGUE ÉLEVÉE'||p>=35)candidate='highFatigue';else if(state.fatigueEvents.length>=3)candidate='repeated';else if(state.yawnEvents.length>=2)candidate='yawns';else if(state.tripMs>=120*60*1000)candidate='break120';else if(state.tripMs>=90*60*1000)candidate='plan90';if(candidate)showRecommendation(candidate);}
+  function formatBreak(ms){const t=Math.max(0,Math.ceil(ms/1000)),m=Math.floor(t/60),s=t%60;return `${m}:${String(s).padStart(2,'0')}`;}
+  function updateBreak(){if(!state.breakActive)return;const remaining=state.breakEndsAt-Date.now();els.breakCountdown.textContent=formatBreak(remaining);if(remaining<=0)endBreak(true);}
+  function startBreak(){if(state.breakActive)return;if(!confirm('Activez la pause uniquement une fois le véhicule stationné dans un endroit sûr. Confirmer que le véhicule est arrêté ?'))return;if(state.running&&!els.stopBtn.disabled)els.stopBtn.click();hideRecommendation(true);state.breakActive=true;state.breakEndsAt=Date.now()+15*60*1000;els.breakPanel.hidden=false;updateBreak();state.breakTimer=setInterval(updateBreak,1000);speak('Pause de quinze minutes démarrée. Reposez-vous et ne reprenez la route que si vous vous sentez pleinement réveillé et vigilant.');}
+  function endBreak(completed=false){if(!state.breakActive)return;state.breakActive=false;if(state.breakTimer)clearInterval(state.breakTimer);state.breakTimer=null;state.breakEndsAt=0;els.breakPanel.hidden=true;state.fatigueEvents=[];state.yawnEvents=[];state.fatigueEpisodeActive=false;state.greenSince=0;state.dismissed.clear();if(completed){resetTrip();speak("La pause de quinze minutes est terminée. Avant de reprendre la route, assurez-vous d'être pleinement réveillé et vigilant.");}}
+  function resetSessionSignals(){state.fatigueEvents=[];state.yawnEvents=[];state.lastYawnCount=Number(els.yawns?.textContent)||0;state.fatigueEpisodeActive=false;state.greenSince=0;state.dismissed.clear();hideRecommendation(true);}
+  function updateVoiceSetting(){state.voiceEnabled=els.voice?.checked!==false;localStorage.setItem(VOICE_KEY,state.voiceEnabled?'1':'0');if(!state.voiceEnabled&&'speechSynthesis'in window)try{speechSynthesis.cancel()}catch{}}
+
+  loadTrip();const stored=localStorage.getItem(VOICE_KEY);state.voiceEnabled=stored===null?true:stored==='1';if(els.voice)els.voice.checked=state.voiceEnabled;
+  els.dismiss.addEventListener('click',dismissRecommendation);els.startBreak.addEventListener('click',startBreak);els.endBreak.addEventListener('click',()=>endBreak(false));els.voice?.addEventListener('change',updateVoiceSetting);els.startBtn?.addEventListener('click',()=>{if(state.breakActive)endBreak(false);});window.addEventListener('beforeunload',saveTrip);
+
+  setInterval(()=>{const now=Date.now();const running=Boolean(els.startBtn?.disabled&&!els.stopBtn?.disabled);updateTrip(running);if(running&&!state.running){state.running=true;state.stoppedAt=0;state.lastLabel='EN VEILLE';resetSessionSignals();}if(!running&&state.running){state.running=false;state.stoppedAt=now;hideRecommendation(true);saveTrip();}if(!state.running||state.breakActive)return;if(alarmActive()){hideRecommendation(true);return;}const label=(els.vigilance?.textContent||'').trim();updateFatigueEpisodes(label,now);updateYawns(now);state.lastLabel=label;checkRecommendations();},1000);
+})();
+'''
+Path('recommendations-v17.js').write_text(recommendations,encoding='utf-8')
+
+Path('sw.js').write_text(r'''const CACHE="cr3atix-vigilance-v1.7.2";
+const CORE=["./","./index.html","./styles.css","./app.js","./app-core-v16.js","./manifest.webmanifest","./icon.svg","./recommendations-v17.css","./recommendations-v17.js"];
+self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));
+self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
+self.addEventListener("fetch",e=>{if(e.request.method!=="GET")return;e.respondWith(caches.match(e.request).then(hit=>hit||fetch(e.request).then(r=>{const copy=r.clone();caches.open(CACHE).then(c=>c.put(e.request,copy));return r;}).catch(()=>{if(e.request.mode==="navigate")return caches.match("./index.html");return Response.error();})));});
+''',encoding='utf-8')
+
+Path('README.md').write_text(r'''# CR3@TIX VIGILANCE
+
+Application web d'aide à la vigilance pour conducteurs, avec analyse locale de la caméra frontale.
+
+## Version actuelle — V1.7.2 Stabilisation
+
+- détection du visage via MediaPipe Face Landmarker
+- fermeture des yeux via EAR et calibration personnalisée
+- PERCLOS glissant calculé selon le temps réel sur 60 secondes
+- détection de bâillement avec durée minimale pour réduire les faux positifs
+- carillon court lors d'un passage vers un état non vert
+- alarme forte sirène / voix / les deux, avec sirène de secours si la voix n'est pas disponible
+- acquittement temporaire : une alarme peut repartir si les yeux restent fermés
+- recommandations de pause selon durée de trajet et signes récents de fatigue
+- recommandations vocales génériques sans prénom
+- pop-up de recommandation indépendante de la caméra avec bouton Annuler la recommandation
+- pause guidée 15 minutes, activable uniquement après confirmation que le véhicule est stationné
+- mode Jour / Nuit / Auto
+- calibration indépendante dans Paramètres
+- journal, statistiques et export CSV
+- réglages de détection et mode d'alarme mémorisés localement
+- fallback GPU vers CPU si nécessaire
+- interface et cache local via service worker
+
+## Important
+
+Le modèle MediaPipe est chargé depuis Internet. L'analyse vidéo est exécutée localement dans le navigateur ; le code de l'application n'envoie pas les images vers un serveur.
+
+CR3@TIX VIGILANCE est une aide à la vigilance et n'est pas un dispositif de sécurité certifié. Une alerte ou une recommandation ne remplace jamais le repos, les règles de sécurité routière ni les obligations réglementaires applicables aux conducteurs professionnels.
+''',encoding='utf-8')
+
+verify_dir=Path('scripts');verify_dir.mkdir(exist_ok=True)
+Path('scripts/verify-v172.mjs').write_text(r'''import fs from 'node:fs';
+const fail=m=>{console.error('VERIFY FAIL:',m);process.exit(1)};
+const index=fs.readFileSync('index.html','utf8');const core=fs.readFileSync('app-core-v16.js','utf8');const rec=fs.readFileSync('recommendations-v17.js','utf8');const sw=fs.readFileSync('sw.js','utf8');
+for(const typo of ['Tèsd','Bâuil','VISGCE','IGNORER LA RECOMMANDATION'])if(index.includes(typo))fail(`texte incorrect: ${typo}`);
+for(const id of ['camera','startBtn','stopBtn','ignoreAlertBtn','recommendationBanner','dismissRecommendationBtn','startBreakBtn','calibrateBtn','perclos','yawnCount'])if(!index.includes(`id="${id}"`))fail(`id manquant: ${id}`);
+for(const token of ['calculatePerclos','delegate:"CPU"','alarmSnoozeUntil','yawnStartedAt','DETECTION_SETTINGS_KEY'])if(!core.includes(token))fail(`core incomplet: ${token}`);
+if(core.includes('ignoredUntilOpen'))fail('ancienne logique ignoredUntilOpen encore présente');
+for(const token of ['TRIP_KEY','fatigueEpisodeActive','yawnEvents','alarmActive()){hideRecommendation'])if(!rec.includes(token))fail(`recommandations incomplètes: ${token}`);
+if(rec.includes("['ATTENTION','DANGER','FATIGUE ÉLEVÉE','VISAGE ABSENT']"))fail('VISAGE ABSENT ne doit pas compter comme fatigue');
+if(!sw.includes('cr3atix-vigilance-v1.7.2'))fail('cache V1.7.2 absent');if(!sw.includes('e.request.mode==="navigate"'))fail('fallback service worker trop large');
+console.log('V1.7.2 verification OK');
+''',encoding='utf-8')
+
+final_workflow = '''name: Deploy to GitHub Pages\n\non:\n  push:\n    branches:\n      - main\n  workflow_dispatch:\n\npermissions:\n  contents: read\n  pages: write\n  id-token: write\n\nconcurrency:\n  group: pages\n  cancel-in-progress: true\n\njobs:\n  deploy:\n    environment:\n      name: github-pages\n    runs-on: ubuntu-latest\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v6\n      - name: Verify JavaScript syntax\n        run: |\n          node --check app.js\n          node --check app-core-v16.js\n          node --check recommendations-v17.js\n      - name: Verify V1.7.2 integrity\n        run: node scripts/verify-v172.mjs\n      - name: Setup Pages\n        uses: actions/configure-pages@v5\n      - name: Upload artifact\n        uses: actions/upload-pages-artifact@v4\n        with:\n          path: '.'\n      - name: Deploy to GitHub Pages\n        id: deployment\n        uses: actions/deploy-pages@v4\n'''
+Path('.github/workflows/pages.yml').write_text(final_workflow,encoding='utf-8')
+
+migration_workflow=Path('.github/workflows/v172-migrate.yml')
+if migration_workflow.exists(): migration_workflow.unlink()
+self_path=Path('scripts/migrate-v172.py')
+if self_path.exists(): self_path.unlink()
+
+for typo in ['Tèsd','Bâuil','VISGCE','IGNORER LA RECOMMANDATION']:
+    if typo in index_path.read_text(encoding='utf-8'): raise SystemExit(f'typo remains: {typo}')
+if 'cr3atix-vigilance-v1.7.2' not in Path('sw.js').read_text(encoding='utf-8'): raise SystemExit('cache marker missing')
+print('V1.7.2 files patched successfully')
