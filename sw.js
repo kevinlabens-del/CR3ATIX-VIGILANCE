@@ -1,5 +1,5 @@
-const CACHE="cr3atix-vigilance-v1.9.4.1";
-const CORE=["./","./index.html","./styles.css","./app.js","./app-core-v16.js","./manifest.webmanifest","./icon.svg","./recommendations-v17.css","./recommendations-v17.js","./runtime-v18.css","./runtime-v18.js","./onboarding-v19.css","./onboarding-v194.js"];
+const CACHE="cr3atix-vigilance-v1.9.5";
+const CORE=["./","./index.html","./styles.css","./app.js","./app-core-v16.js","./manifest.webmanifest","./icon.svg","./recommendations-v17.css","./recommendations-v17.js","./runtime-v18.css","./runtime-v18.js","./onboarding-v19.css","./onboarding-v195.js"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));
 self.addEventListener("activate",e=>e.waitUntil((async()=>{
   const keys=await caches.keys();
@@ -8,4 +8,22 @@ self.addEventListener("activate",e=>e.waitUntil((async()=>{
   const clients=await self.clients.matchAll({type:"window"});
   await Promise.all(clients.map(client=>client.navigate(client.url).catch(()=>null)));
 })()));
-self.addEventListener("fetch",e=>{if(e.request.method!=="GET")return;e.respondWith(caches.match(e.request).then(hit=>hit||fetch(e.request).then(r=>{const copy=r.clone();caches.open(CACHE).then(c=>c.put(e.request,copy));return r;}).catch(()=>{if(e.request.mode==="navigate")return caches.match("./index.html");return Response.error();})))});
+self.addEventListener("fetch",e=>{
+  if(e.request.method!=="GET")return;
+  const req=e.request;
+  const url=new URL(req.url);
+  const dynamic=url.origin===self.location.origin&&(req.mode==="navigate"||req.destination==="script"||req.destination==="style");
+  if(dynamic){
+    e.respondWith(fetch(req,{cache:"no-store"}).then(r=>{
+      const copy=r.clone();
+      caches.open(CACHE).then(c=>c.put(req,copy));
+      return r;
+    }).catch(()=>caches.match(req).then(hit=>hit||(req.mode==="navigate"?caches.match("./index.html"):Response.error()))));
+    return;
+  }
+  e.respondWith(caches.match(req).then(hit=>hit||fetch(req).then(r=>{
+    const copy=r.clone();
+    caches.open(CACHE).then(c=>c.put(req,copy));
+    return r;
+  }).catch(()=>req.mode==="navigate"?caches.match("./index.html"):Response.error())));
+});
