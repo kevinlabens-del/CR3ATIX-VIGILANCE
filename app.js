@@ -29,7 +29,8 @@ const state = {
   yawns: 0, lastYawnAt: 0, yawnLatch: false, history: [], perclosSamples: [],
   audioCtx: null, sirenTimer: null, oscillators: [], voiceBlob: null, voiceUrl: null,
   voiceAudio: null, mediaRecorder: null, recordingStream: null, deferredInstall: null,
-  alarmVolume: 0.85,   calibrationSamples: [], calibrationTimer: null, calibrationActive: false, lastStatsPersist: 0
+  alarmVolume: 0.85, calibrationSamples: [], calibrationTimer: null, calibrationActive: false, lastStatsPersist: 0,
+  lastVigilanceLabel: "EN VEILLE", lastVigilanceType: "idle", lastCautionToneAt: 0
 };
 
 const STORAGE_KEY = "cr3atix-vigilance-today-v1";
@@ -119,14 +120,45 @@ async function initLandmarker(silent=false){
   });
 }
 
+function primeAudio(){
+  const AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC) return;
+  try{
+    state.audioCtx=state.audioCtx||new AC();
+    if(state.audioCtx.state==="suspended") state.audioCtx.resume().catch(()=>{});
+  }catch{}
+}
+
+function playCautionTone(){
+  if(!state.running || state.alarmActive) return;
+  primeAudio();
+  const ctx=state.audioCtx;
+  if(!ctx || ctx.state!=="running") return;
+  const now=ctx.currentTime;
+  const master=Math.max(.0001,.085*state.alarmVolume);
+  [
+    {freq:880,gain:master,end:.30},
+    {freq:1760,gain:master*.34,end:.22}
+  ].forEach(({freq,gain,end})=>{
+    const osc=ctx.createOscillator(),amp=ctx.createGain();
+    osc.type="sine";osc.frequency.setValueAtTime(freq,now);
+    amp.gain.setValueAtTime(.0001,now);
+    amp.gain.exponentialRampToValueAtTime(Math.max(.0001,gain),now+.012);
+    amp.gain.exponentialRampToValueAtTime(.0001,now+end);
+    osc.connect(amp).connect(ctx.destination);osc.start(now);osc.stop(now+end+.02);
+  });
+}
+
 async function startCamera(){
   if(state.running) return;
+  primeAudio();
   try{
     await initLandmarker();
     state.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:1280},height:{ideal:720}},audio:false});
     els.camera.srcObject=state.stream;
     await els.camera.play();
     state.running=true; state.startedAt=performance.now(); state.lastStatsPersist=state.startedAt;
+    state.lastVigilanceLabel="EN VEILLE";state.lastVigilanceType="idle";state.lastCautionToneAt=0;
     state.maxClosureMs=0; state.closureStartedAt=null; state.eyeAlertLatched=false; state.ignoredUntilOpen=false;
     state.yawns=0; state.lastYawnAt=0; state.yawnLatch=false; state.history=[];state.perclosSamples=[];
     today.sessions++;saveToday();
@@ -149,6 +181,7 @@ function stopCamera(){
   stopAlarm();
   setRunningUI(false);
   state.faceDetected=false; els.faceState.textContent="OFF"; els.fpsValue.textContent="0";
+  state.lastVigilanceLabel="EN VEILLE";state.lastVigilanceType="idle";state.lastCautionToneAt=0;
 }
 function setRunningUI(on){
   els.startBtn.disabled=on; els.stopBtn.disabled=!on;
@@ -248,8 +281,16 @@ function processResult(result,now){
   }else if(mouth<yawnThreshold*.72){state.yawnLatch=false}
 }
 function setVigilance(label,hint,type){
+  const changed=label!==state.lastVigilanceLabel || type!==state.lastVigilanceType;
+  const nonGreen=type==="warn" || type==="danger";
+  const now=performance.now();
   els.vigilanceLevel.textContent=label;els.vigilanceHint.textContent=hint;
   els.vigilanceLevel.style.color=type==="danger"?"var(--red)":type==="warn"?"var(--amber)":"var(--green)";
+  if(changed && nonGreen && now-state.lastCautionToneAt>900){
+    state.lastCautionToneAt=now;
+    playCautionTone();
+  }
+  state.lastVigilanceLabel=label;state.lastVigilanceType=type;
 }
 function triggerAlert(type,detail){
   today.alerts++;saveToday();
