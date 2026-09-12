@@ -29,8 +29,9 @@ jobs:
           node --check app-core-v16.js
           node --check recommendations-v17.js
           node --check runtime-v18.js
-      - name: Verify V1.8 integrity
-        run: node scripts/verify-v18.mjs
+          node --check onboarding-v19.js
+      - name: Verify V1.9 integrity
+        run: node scripts/verify-v19.mjs
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
