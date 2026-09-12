@@ -1,39 +1,29 @@
 # CR3@TIX VIGILANCE
 
-Prototype fonctionnel d'une appli web anti-somnolence, réimplémentée de zéro avec une identité CR3@TIX.
+Application web d'aide à la vigilance pour conducteurs, avec analyse locale de la caméra frontale.
 
-## Fonctions
-- caméra frontale
-- détection visage via MediaPipe Face Landmarker
-- EAR (Eye Aspect Ratio) pour ouverture/fermeture des yeux
-- alerte après délai configurable
-- PERCLOS glissant sur 60 secondes
-- détection de bâillement
-- calibration personnalisée 3 secondes
-- sirène générée localement
-- volume global d’alarme 0–100 % pour sirène et voix, mémorisé localement
-- enregistrement d'un message vocal 5 secondes
-- journal d'alertes et export CSV
-- statistiques du jour dans localStorage
-- historique visuel 30 secondes
-- installation comme appli depuis le navigateur compatible
-- cache local de l'interface via service worker
+## Version actuelle — V1.7.2 Stabilisation
 
-## Lancer
-La caméra exige un contexte sécurisé :
-- déployer sur Netlify / GitHub Pages / autre HTTPS ; ou
-- lancer en local sur `localhost`.
-
-Ne pas ouvrir simplement `index.html` en `file://` si la caméra est bloquée.
+- détection du visage via MediaPipe Face Landmarker
+- fermeture des yeux via EAR et calibration personnalisée
+- PERCLOS glissant calculé selon le temps réel sur 60 secondes
+- détection de bâillement avec durée minimale pour réduire les faux positifs
+- carillon court lors d'un passage vers un état non vert
+- alarme forte sirène / voix / les deux, avec sirène de secours si la voix n'est pas disponible
+- acquittement temporaire : une alarme peut repartir si les yeux restent fermés
+- recommandations de pause selon durée de trajet et signes récents de fatigue
+- recommandations vocales génériques sans prénom
+- pop-up de recommandation indépendante de la caméra avec bouton Annuler la recommandation
+- pause guidée 15 minutes, activable uniquement après confirmation que le véhicule est stationné
+- mode Jour / Nuit / Auto
+- calibration indépendante dans Paramètres
+- journal, statistiques et export CSV
+- réglages de détection et mode d'alarme mémorisés localement
+- fallback GPU vers CPU si nécessaire
+- interface et cache local via service worker
 
 ## Important
-Le modèle MediaPipe est chargé depuis Internet au premier lancement. L'analyse vidéo se fait ensuite dans le navigateur ; aucune image n'est envoyée par le code de l'appli.
 
-Cette appli est une aide de vigilance et n'est pas un dispositif de sécurité certifié. En cas de fatigue au volant, il faut s'arrêter dans un endroit sûr et se reposer.
+Le modèle MediaPipe est chargé depuis Internet. L'analyse vidéo est exécutée localement dans le navigateur ; le code de l'application n'envoie pas les images vers un serveur.
 
-## Correctif v1.1
-- calibration rendue robuste avec compte à rebours visible
-- validation explicite de la détection du visage
-- messages d’échec détaillés
-- restauration correcte du bouton après calibration ou arrêt caméra
-- confirmation visuelle après calibration réussie
+CR3@TIX VIGILANCE est une aide à la vigilance et n'est pas un dispositif de sécurité certifié. Une alerte ou une recommandation ne remplace jamais le repos, les règles de sécurité routière ni les obligations réglementaires applicables aux conducteurs professionnels.

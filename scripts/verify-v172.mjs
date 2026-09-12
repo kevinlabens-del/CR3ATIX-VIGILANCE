@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+const fail=m=>{console.error('VERIFY FAIL:',m);process.exit(1)};
+const index=fs.readFileSync('index.html','utf8');const core=fs.readFileSync('app-core-v16.js','utf8');const rec=fs.readFileSync('recommendations-v17.js','utf8');const sw=fs.readFileSync('sw.js','utf8');
+for(const typo of ['Tèsd','Bâuil','VISGCE','IGNORER LA RECOMMANDATION'])if(index.includes(typo))fail(`texte incorrect: ${typo}`);
+for(const id of ['camera','startBtn','stopBtn','ignoreAlertBtn','recommendationBanner','dismissRecommendationBtn','startBreakBtn','calibrateBtn','perclos','yawnCount'])if(!index.includes(`id="${id}"`))fail(`id manquant: ${id}`);
+for(const token of ['calculatePerclos','delegate:"CPU"','alarmSnoozeUntil','yawnStartedAt','DETECTION_SETTINGS_KEY'])if(!core.includes(token))fail(`core incomplet: ${token}`);
+if(core.includes('ignoredUntilOpen'))fail('ancienne logique ignoredUntilOpen encore présente');
+for(const token of ['TRIP_KEY','fatigueEpisodeActive','yawnEvents','alarmActive()){hideRecommendation'])if(!rec.includes(token))fail(`recommandations incomplètes: ${token}`);
+if(rec.includes("['ATTENTION','DANGER','FATIGUE ÉLEVÉE','VISAGE ABSENT']"))fail('VISAGE ABSENT ne doit pas compter comme fatigue');
+if(!sw.includes('cr3atix-vigilance-v1.7.2'))fail('cache V1.7.2 absent');if(!sw.includes('e.request.mode==="navigate"'))fail('fallback service worker trop large');
+console.log('V1.7.2 verification OK');

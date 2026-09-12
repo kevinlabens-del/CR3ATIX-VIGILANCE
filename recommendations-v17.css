@@ -35,8 +35,7 @@
 .recommendation-action.secondary{background:var(--surface);color:var(--text);border-color:var(--line-strong)}
 .recommendation-banner.danger .recommendation-action.primary{background:var(--red);border-color:var(--red)}
 .recommendation-banner.warn .recommendation-action.primary{background:var(--amber);border-color:var(--amber);color:#fff}
-#dismissRecommendationBtn{font-size:0;font-weight:950;border-width:2px}
-#dismissRecommendationBtn::after{content:"ANNULER LA RECOMMANDATION";font-size:10px;letter-spacing:.025em}
+#dismissRecommendationBtn{font-weight:950;border-width:2px}
 .recommendation-banner.info #dismissRecommendationBtn{border-color:color-mix(in srgb,var(--blue) 55%,var(--line));color:var(--blue)}
 .recommendation-banner.warn #dismissRecommendationBtn{border-color:color-mix(in srgb,var(--amber) 62%,var(--line));color:var(--amber)}
 .recommendation-banner.danger #dismissRecommendationBtn{border-color:color-mix(in srgb,var(--red) 68%,var(--line));color:var(--red)}
@@ -63,7 +62,6 @@
   .recommendation-copy p{font-size:10.5px}
   .recommendation-actions{grid-template-columns:1fr}
   .recommendation-action{min-height:46px}
-  #dismissRecommendationBtn::after{font-size:10px}
   .break-panel{padding:12px;gap:10px}
   .break-copy strong{font-size:30px}
   .toggle-setting{align-items:flex-start}
