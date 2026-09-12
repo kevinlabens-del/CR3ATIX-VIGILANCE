@@ -18,3 +18,4 @@ document.head.appendChild(onboardingStyles);
 import "./recommendations-v17.js";
 import "./runtime-v18.js";
 import "./onboarding-v19.js";
+import "./onboarding-mandatory-v193.js";
