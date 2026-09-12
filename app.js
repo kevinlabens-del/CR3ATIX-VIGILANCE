@@ -12,9 +12,9 @@ document.head.appendChild(runtimeStyles);
 
 const onboardingStyles = document.createElement("link");
 onboardingStyles.rel = "stylesheet";
-onboardingStyles.href = "./onboarding-v19.css?v=196";
+onboardingStyles.href = "./onboarding-v19.css?v=197";
 document.head.appendChild(onboardingStyles);
 
 import "./recommendations-v17.js";
 import "./runtime-v18.js";
-import "./onboarding-v196.js";
+import "./onboarding-v197.js";
