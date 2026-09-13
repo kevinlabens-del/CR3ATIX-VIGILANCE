@@ -1,5 +1,5 @@
-const CACHE="cr3atix-vigilance-v1.9.8";
-const CORE=["./","./index.html","./styles.css","./app.js","./app-core-v16.js","./manifest.webmanifest","./icon.svg","./recommendations-v17.css","./recommendations-v17.js","./runtime-v18.css","./runtime-v18.js","./onboarding-v19.css","./onboarding-v198.js"];
+const CACHE="cr3atix-vigilance-v2.0.0";
+const CORE=["./","./index.html","./styles.css","./app.js","./app-core-v16.js","./manifest.webmanifest","./icon.svg","./recommendations-v17.css","./recommendations-v17.js","./runtime-v18.css","./runtime-v18.js","./onboarding-v20.css","./onboarding-v200.js"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));
 self.addEventListener("activate",e=>e.waitUntil((async()=>{
   const keys=await caches.keys();
