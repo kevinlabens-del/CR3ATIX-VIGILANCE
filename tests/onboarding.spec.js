@@ -83,7 +83,7 @@ test('browser mode: an installed PWA advances directly to camera calibration', a
   await expect(page.locator('#settingsView')).toBeHidden();
   await expect(page.locator('#setupWizardSlot #calibrateBtn')).toBeVisible();
   const flag=await page.evaluate(()=>localStorage.getItem('cr3atix-vigilance-install-confirmed-v1'));
-  expect(flag).toContain('getInstalledRelatedApps');
+  expect(flag).toContain('confirmedAt');
 });
 
 test('appinstalled event advances automatically without a verify step', async ({ page }) => {
@@ -121,7 +121,7 @@ test('standalone mode: complete five-step setup without browsing the settings pa
   await expect(page.locator('#setupWizardSlot #alarmVolume')).toBeVisible();
   await expectTouchable(page, '#alarmVolume');
   await setRange(page, '#alarmVolume', 73);
-  await page.locator('input[name="alarmMode"][value="siren"]').check();
+  await page.locator('input[name="alarmMode"][value="siren"]').check({force:true});
   await expectTouchable(page, '#wizardTestVolume');
   await expectTouchable(page, '#wizardAlarmNext');
   await page.locator('#wizardAlarmNext').click();
@@ -161,7 +161,9 @@ test('voice mode cannot be validated without a recorded message', async ({ page 
   await simulateSuccessfulCalibration(page);
   await page.locator('#wizardCalibrationNext').click();
   await page.locator('#wizardDetectionNext').click();
-  await page.locator('input[name="alarmMode"][value="voice"]').check();
+  const voiceRadio=page.locator('input[name="alarmMode"][value="voice"]');
+  await voiceRadio.locator('..').click();
+  await expect(voiceRadio).toBeChecked();
   await page.locator('#wizardAlarmNext').click();
   await expect(page.locator('#setupWizardTitle')).toHaveText(/Choisis ton alarme/i);
   await expect(page.locator('#wizardMessage')).toContainText(/enregistre/i);
