@@ -1,4 +1,5 @@
 import "./app-core-v16.js";
+import "./stability-v21.js";
 
 const recommendationStyles = document.createElement("link");
 recommendationStyles.rel = "stylesheet";
