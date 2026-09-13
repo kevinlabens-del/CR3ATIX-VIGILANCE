@@ -28,7 +28,6 @@ async function expectTouchable(page, selector) {
       width: r.width,
       height: r.height,
       tag: el.tagName,
-      type: el.getAttribute('type') || '',
       hitId: hit?.id || '',
       hitTag: hit?.tagName || '',
       isTarget: hit === el || el.contains(hit)
@@ -48,7 +47,7 @@ async function setRange(page, selector, value) {
   }, value);
 }
 
-async function emulateInstalled(page) {
+async function emulateStandalone(page) {
   await page.addInitScript(() => {
     const nativeMatchMedia = window.matchMedia.bind(window);
     window.matchMedia = query => {
@@ -70,7 +69,20 @@ async function emulateInstalled(page) {
   });
 }
 
-test('browser mode: install gate is visible and its button receives the click', async ({ page }) => {
+async function emulateRelatedPwaInstalled(page) {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'getInstalledRelatedApps', {
+      configurable: true,
+      value: async () => [{
+        platform: 'webapp',
+        id: 'https://kevinlabens-del.github.io/CR3ATIX-VIGILANCE/',
+        url: 'http://127.0.0.1:4173/manifest.webmanifest'
+      }]
+    });
+  });
+}
+
+test('browser mode: install gate is visible and verify button visibly responds', async ({ page }) => {
   await stubMediaPipe(page);
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 
@@ -79,13 +91,37 @@ test('browser mode: install gate is visible and its button receives the click', 
   await expectTouchable(page, '#setupInstallAction');
 
   await page.locator('#setupInstallAction').click();
-  await expect(page.locator('.setup-message')).toContainText(/navigateur|Installe/i);
+  await expect(page.locator('.setup-message')).toContainText(/Vérification effectuée/i);
   await expect(page.locator('#settingsView')).toBeHidden();
 });
 
-test('installed mode: settings controls are not covered and setup can be completed', async ({ page }) => {
+test('browser mode: an already installed PWA is detected and advances to settings', async ({ page }) => {
   await stubMediaPipe(page);
-  await emulateInstalled(page);
+  await emulateRelatedPwaInstalled(page);
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+  await expect(page.locator('#firstRunOverlay')).toHaveCount(0);
+  await expect(page.locator('#settingsView')).toBeVisible();
+  await expect(page.locator('#setupGuide')).toContainText(/Installation détectée/i);
+  const installFlag = await page.evaluate(() => localStorage.getItem('cr3atix-vigilance-install-confirmed-v1'));
+  expect(installFlag).toContain('getInstalledRelatedApps');
+});
+
+test('appinstalled event: installation automatically advances to step 2', async ({ page }) => {
+  await stubMediaPipe(page);
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#firstRunOverlay')).toBeVisible();
+
+  await page.evaluate(() => window.dispatchEvent(new Event('appinstalled')));
+
+  await expect(page.locator('#firstRunOverlay')).toHaveCount(0);
+  await expect(page.locator('#settingsView')).toBeVisible();
+  await expect(page.locator('#setupGuide')).toContainText(/Installation terminée/i);
+});
+
+test('standalone installed mode: settings controls work and setup can be completed', async ({ page }) => {
+  await stubMediaPipe(page);
+  await emulateStandalone(page);
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 
   await expect(page.locator('#firstRunOverlay')).toHaveCount(0);
@@ -106,7 +142,7 @@ test('installed mode: settings controls are not covered and setup can be complet
   const stored = await page.evaluate(() => ({
     volume: localStorage.getItem('cr3atix-vigilance-alarm-volume-v1'),
     detection: JSON.parse(localStorage.getItem('cr3atix-vigilance-detection-settings-v172') || 'null'),
-    setup: JSON.parse(localStorage.getItem('cr3atix-vigilance-setup-v197') || 'null')
+    setup: JSON.parse(localStorage.getItem('cr3atix-vigilance-setup-v198') || 'null')
   }));
   expect(Number(stored.volume)).toBeCloseTo(0.73, 2);
   expect(stored.detection.closureDelay).toBeCloseTo(1.5, 2);
@@ -126,7 +162,7 @@ test('installed mode: settings controls are not covered and setup can be complet
       baseline: 0.31,
       calibratedAt: new Date().toISOString()
     }));
-    const key = 'cr3atix-vigilance-setup-v197';
+    const key = 'cr3atix-vigilance-setup-v198';
     const setup = JSON.parse(localStorage.getItem(key));
     setup.run.calibrationConfirmed = true;
     setup.run.detectionConfirmed = true;
