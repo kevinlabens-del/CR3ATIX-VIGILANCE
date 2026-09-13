@@ -1,11 +1,21 @@
 {
+  "id": "/CR3ATIX-VIGILANCE/",
   "name": "CR3@TIX VIGILANCE",
   "short_name": "VIGILANCE",
   "description": "Aide locale à la vigilance pour conducteurs, voiture et poids lourd.",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#eef3f7",
   "theme_color": "#eef3f7",
+  "prefer_related_applications": false,
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "url": "./manifest.webmanifest",
+      "id": "https://kevinlabens-del.github.io/CR3ATIX-VIGILANCE/"
+    }
+  ],
   "icons": [
     {
       "src": "icon.svg",
