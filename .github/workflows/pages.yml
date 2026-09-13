@@ -12,7 +12,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages-v200
+  group: pages-v210
   cancel-in-progress: true
 
 jobs:
@@ -33,13 +33,15 @@ jobs:
         run: |
           node --check app.js
           node --check app-core-v16.js
+          node --check stability-v21.js
           node --check recommendations-v17.js
           node --check runtime-v18.js
           node --check onboarding-v200.js
           node --check tests/onboarding.spec.js
+          node --check tests/stability.spec.js
 
-      - name: Verify V2.0.0 integrity
-        run: node scripts/verify-v20.mjs
+      - name: Verify V2.1.0 integrity
+        run: node scripts/verify-v21.mjs
 
       - name: Install browser test dependencies
         run: npm install --no-audit --no-fund
@@ -47,7 +49,7 @@ jobs:
       - name: Install Chromium for Playwright
         run: npx playwright install --with-deps chromium
 
-      - name: Run mobile interaction tests
+      - name: Run mobile interaction and stability tests
         run: npm run test:ui
 
       - name: Setup Pages
