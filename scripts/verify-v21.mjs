@@ -1,0 +1,24 @@
+import fs from 'node:fs';
+const fail=m=>{console.error('VERIFY FAIL:',m);process.exit(1)};
+const read=p=>fs.readFileSync(p,'utf8');
+const app=read('app.js');
+const core=read('app-core-v16.js');
+const stable=read('stability-v21.js');
+const rec=read('recommendations-v17.js');
+const onboard=read('onboarding-v200.js');
+const sw=read('sw.js');
+const pkg=JSON.parse(read('package.json'));
+
+if(pkg.version!=='2.1.0') fail('package version must be 2.1.0');
+for(const token of ['./app-core-v16.js','./stability-v21.js','./recommendations-v17.js','./runtime-v18.js','./onboarding-v200.js']) if(!app.includes(token)) fail(`app module missing: ${token}`);
+for(const token of ['calculatePerclos','setVigilance','triggerAlert','yawnStartedAt']) if(!core.includes(token)) fail(`core token missing: ${token}`);
+for(const token of ['blinkIgnoreMs','attentionMs','openRecoveryWarnMs','openRecoveryDangerMs','perclosWarmupMs','perclosEnterHoldMs','perclosExitHoldMs','ANALYSE EN PAUSE','fermeture prolongée confirmée','__vigilanceStability']) if(!stable.includes(token)) fail(`stability token missing: ${token}`);
+if(!stable.includes("raw === 'VISAGE ABSENT'")) fail('face loss must be handled as analysis pause');
+if(!stable.includes('closedFor >= dangerAt')) fail('danger must wait for user closure threshold');
+if(!stable.includes('elapsed >= CFG.perclosWarmupMs')) fail('PERCLOS warmup missing');
+if(!stable.includes('state.fatigueRecoveryAt')) fail('fatigue exit hysteresis missing');
+for(const token of ['TRIP_KEY','fatigueEpisodeActive','checkRecommendations']) if(!rec.includes(token)) fail(`recommendations token missing: ${token}`);
+for(const token of ['cr3atix-vigilance-setup-v200','REFAIRE L’ASSISTANT DE CONFIGURATION']) if(!onboard.includes(token)) fail(`onboarding token missing: ${token}`);
+if(!sw.includes('cr3atix-vigilance-v2.1.0')) fail('service-worker cache must be v2.1.0');
+if(!sw.includes('./stability-v21.js')) fail('stability module missing from service-worker cache');
+console.log('V2.1.0 verification OK');
