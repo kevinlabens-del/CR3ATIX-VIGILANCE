@@ -12,7 +12,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages-v198
+  group: pages-v200
   cancel-in-progress: true
 
 jobs:
@@ -35,11 +35,11 @@ jobs:
           node --check app-core-v16.js
           node --check recommendations-v17.js
           node --check runtime-v18.js
-          node --check onboarding-v198.js
+          node --check onboarding-v200.js
           node --check tests/onboarding.spec.js
 
-      - name: Verify V1.9.8 integrity
-        run: node scripts/verify-v19.mjs
+      - name: Verify V2.0.0 integrity
+        run: node scripts/verify-v20.mjs
 
       - name: Install browser test dependencies
         run: npm install --no-audit --no-fund
