@@ -40,3 +40,52 @@ document.head.appendChild(onboardingStyles);
 import "./recommendations-v17.js";
 import "./runtime-v18.js";
 import "./onboarding-v200.js";
+
+
+/* CR3ATIX_SHARE_V1 — partage volontaire hors de la zone de conduite active. */
+const shareButton = document.getElementById("shareAppBtn");
+const shareStatus = document.getElementById("shareAppStatus");
+if (shareButton) {
+  const canonicalUrl = "https://kevinlabens-del.github.io/CR3ATIX-VIGILANCE/";
+  const setShareStatus = (message) => {
+    if (shareStatus) shareStatus.textContent = message;
+  };
+  const copyShareUrl = async () => {
+    try {
+      if (window.isSecureContext && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(canonicalUrl);
+        setShareStatus("Lien de l’application copié.");
+        return;
+      }
+    } catch {}
+    const field = document.createElement("textarea");
+    field.value = canonicalUrl;
+    field.readOnly = true;
+    field.style.cssText = "position:fixed;opacity:0;pointer-events:none;";
+    document.body.append(field);
+    field.select();
+    field.setSelectionRange(0, field.value.length);
+    let copied = false;
+    try { copied = document.execCommand("copy"); } catch {}
+    field.remove();
+    if (copied) setShareStatus("Lien de l’application copié.");
+    else window.prompt("Copie ce lien pour partager CR3@TIX VIGILANCE :", canonicalUrl);
+  };
+  shareButton.addEventListener("click", async () => {
+    const data = {
+      title: "CR3@TIX VIGILANCE",
+      text: "Découvre CR3@TIX VIGILANCE, une application d’aide à la vigilance pour conducteurs.",
+      url: canonicalUrl
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(data);
+        setShareStatus("Partage ouvert sur ton appareil.");
+        return;
+      } catch (error) {
+        if (error?.name === "AbortError") return;
+      }
+    }
+    await copyShareUrl();
+  });
+}
