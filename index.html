@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#eef3f7" />
   <meta name="description" content="CR3@TIX VIGILANCE — aide locale à la vigilance pour conducteurs, voiture et poids lourd." />
+  <meta property="og:title" content="CR3@TIX VIGILANCE" />
+  <meta property="og:description" content="Une aide locale à la vigilance routière pour conducteurs, avec détection sur l’appareil et aucune image envoyée." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://kevinlabens-del.github.io/CR3ATIX-VIGILANCE/" />
+  <meta property="og:image" content="https://kevinlabens-del.github.io/CR3ATIX-VIGILANCE/icon.svg" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="CR3@TIX VIGILANCE" />
+  <meta name="twitter:description" content="Aide locale à la vigilance routière pour voiture et poids lourd." />
+  <meta name="twitter:image" content="https://kevinlabens-del.github.io/CR3ATIX-VIGILANCE/icon.svg" />
   <script>
     (() => {
       try {
@@ -271,6 +280,16 @@
             <div><span>Seuil calibré</span><b id="chartThreshold">0.21</b></div>
           </div>
           <canvas id="historyCanvas" height="180"></canvas>
+        </section>
+
+        <section class="settings-section glass wide-section">
+          <div class="section-heading">
+            <span class="section-icon">↗</span>
+            <div><span class="eyebrow">APPLICATION</span><h3>Partager CR3@TIX VIGILANCE</h3></div>
+            <button id="shareAppBtn" class="btn secondary" type="button" aria-label="Partager CR3@TIX VIGILANCE" title="Partager l’application">PARTAGER</button>
+          </div>
+          <p class="section-desc">Envoie uniquement le lien public de l’application. Aucune donnée de surveillance, caméra, position ou session n’est partagée.</p>
+          <div id="shareAppStatus" class="info-line" role="status" aria-live="polite">Prêt à partager.</div>
         </section>
 
         <section class="settings-section glass wide-section">
